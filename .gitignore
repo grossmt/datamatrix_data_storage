@@ -1,0 +1,28 @@
+.vscode/settings.json
+
+*.pyc
+*.egg-info/
+*.egg
+# Files of robot test results
+log.html
+output.xml
+report.html
+/log.html
+/output.xml
+/report.html
+
+/tests/output/
+!/tests/output/.gitkeep
+
+# general python things to ignore
+venv/
+build/
+dist/
+.pytest_cache/
+*.egg-info/
+*.egg
+*.py[cod]
+__pycache__/
+*.so
+*~
+.env

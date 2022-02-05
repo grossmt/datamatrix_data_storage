@@ -1,1 +1,3 @@
-# datamatrix_data_storage
+# Datamatrix: Система сбора данных
+
+Протокол: см ./docs/Protocol.docx
