@@ -1,0 +1,12 @@
+# USAGE:
+# conda env create -f conda-env.yaml
+# conda activate datamatrix_storage
+
+name: datamatrix_storage
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - -r requirements.txt
