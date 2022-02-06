@@ -3,6 +3,8 @@
 *.pyc
 *.egg-info/
 *.egg
+/src/datamatrix_data_storage.egg-info
+
 # Files of robot test results
 log.html
 output.xml
