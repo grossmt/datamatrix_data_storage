@@ -1,17 +1,21 @@
 from operator import truediv
 import time
+import sys
+
 import multiprocessing
 from multiprocessing import Process
 from typing import Union, Optional, List
+from threading import Thread
 
-from socket import socket, AF_INET, SOCK_STREAM
+from socket import socket, AF_INET, SOCK_STREAM, SHUT_WR, SOL_SOCKET, SO_REUSEADDR
 from sys import byteorder
 
 from black import assert_equivalent
 
 from dm_storager.const import (
     SOCKET_ADDRESS,
-    SOCKET_PORT,
+    SOCKET_PORT_SERVER,
+    SOCKET_PORT_LISTENER,
     DEFAULT_SCANNER_ID,
     SCANNER_PING_TIMEOUT,
 )
@@ -23,9 +27,34 @@ from dm_storager.structs import (
 )
 
 
-def run_ping_in_proc():
-    print("Sleep for 2 sec")
-    time.sleep(2)
+def _client_thread(connection, ip, port, max_buffer_size=5120):
+
+    is_active = True
+
+    while is_active:
+        client_input = _receive_input(connection, max_buffer_size)
+
+        if "--QUIT--" in client_input:
+            print("Client is requesting to quit")
+            connection.close()
+            print("Connection " + ip + ":" + port + " closed")
+            is_active = False
+        else:
+            print("Processed result: {}".format(client_input))
+            connection.sendall("-".encode("utf8"))
+
+
+def _receive_input(connection, max_buffer_size):
+    client_input = connection.recv(max_buffer_size)
+    client_input_size = sys.getsizeof(client_input)
+
+    if client_input_size > max_buffer_size:
+        print("The input size is greater than expected {}".format(client_input_size))
+
+    decoded_input = client_input.decode("utf8").rstrip()  # decode and strip end of line
+    result = decoded_input
+
+    return result
 
 
 class SockerHandler(object):
@@ -35,8 +64,12 @@ class SockerHandler(object):
         # port: int = SOCKET_PORT,
     ) -> None:
         self._sockets: List[socket] = []
-        self._is_open = False
         self._scanners: List[ScannerStat] = []
+
+        self._client_socket = socket(AF_INET, SOCK_STREAM)
+        self._client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        self._client_socket.bind(("", SOCKET_PORT_LISTENER))
+        self._is_open = False
 
     def add_scanner(self, new_scanner: ScannerStat) -> None:
 
@@ -72,8 +105,24 @@ class SockerHandler(object):
                 self._is_open = False
 
     async def listen(self):
-        if self._is_open is False:
+        if self._is_open is True:
+            print("Already listening")
             return
+
+        # self._client_socket.shutdown(SHUT_WR)
+        self._client_socket.listen(5)
+
+        while True:
+            try:
+                connection, address = self._client_socket.accept()
+                ip, port = str(address[0]), str(address[1])
+
+                print("Connected with " + ip + ":" + port)
+                Thread(target=_client_thread, args=(connection, ip, port)).start()
+            except Exception:
+                print("Thread did not start.")
+
+        self._client_socket.close()
 
     async def ping(self, scanner):
 
