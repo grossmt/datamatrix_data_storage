@@ -10,7 +10,7 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, SHUT_WR, SOL_SOCKET, SO_REUSEADDR
 from sys import byteorder
 
-from black import assert_equivalent
+# from black import assert_equivalent
 
 from dm_storager.const import (
     SOCKET_ADDRESS,
@@ -26,6 +26,7 @@ from dm_storager.structs import (
     ScannerStat,
 )
 
+from dm_storager.__main__ import LOGGER
 
 def _client_thread(connection, ip, port, max_buffer_size=5120):
 
@@ -57,7 +58,7 @@ def _receive_input(connection, max_buffer_size):
     return result
 
 
-class SockerHandler(object):
+class SocketHandler(object):
     def __init__(
         self,
         # scanner_address: str = SOCKET_ADDRESS,
@@ -73,36 +74,34 @@ class SockerHandler(object):
 
     def add_scanner(self, new_scanner: ScannerStat) -> None:
 
-        for present_scanner in self._scanners:
-            if new_scanner.scanner_id == present_scanner.scanner_id:
-                print("Scanner with given ID already exists!")
-                return
+        present_ids = [x.scanner_id for x in self._scanners]
+        if new_scanner.scanner_id in present_ids:
+            LOGGER.warning("Scanner with given ID already exists!")
+            return
+
         self._scanners.append(new_scanner)
         new_socket = socket(AF_INET, SOCK_STREAM)
         self._sockets.append(new_socket)
 
-    def open(self, scanner: Union[ScannerStat, str]) -> None:
+    def open(self, scanner: ScannerStat) -> None:
 
-        if scanner == "all":
-            # open all
-            pass
-        elif isinstance(scanner, ScannerStat):
-            # open specified
-            i = self._scanners.index(scanner)
-            if self._scanners[i].is_open:
-                print("Already opened")
-                return
-            self._scanners[i].packet_id = 0
+        # open specified
+        i = self._scanners.index(scanner)
+        if self._scanners[i].is_open:
+            LOGGER.warning(f"Scanner #{scanner.scanner_id} was already opened")
+            return
 
-            try:
-                self._sockets[0].connect(
-                    (self._scanners[i].address, self._scanners[i].port)
-                )
-                self._scanners[i].is_open = True
-            except Exception as ex:
-                print(str(ex))
-                self._sockets[0].close()
-                self._is_open = False
+        self._scanners[i].packet_id = 0
+
+        try:
+            self._sockets[0].connect(
+                (self._scanners[i].address, self._scanners[i].port)
+            )
+            self._scanners[i].is_open = True
+        except Exception as ex:
+            print(str(ex))
+            self._sockets[0].close()
+            self._is_open = False
 
     async def listen(self):
         if self._is_open is True:
@@ -155,9 +154,7 @@ class SockerHandler(object):
         return True
 
     def close(self) -> None:
-        if self._is_open:
-            self._sockets[0].close()
-        self._is_open = False
+        pass
 
     def _build(
         self, packet: Union[StateControlPacket, SettingsSetRequestPacket]
