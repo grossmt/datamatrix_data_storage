@@ -1,5 +1,7 @@
 from unittest.mock import DEFAULT
+from pathlib import Path
 
+SCANNER_SETTINGS = Path("./src/dm_storager/settings/connection_settings.json")
 
 # SOCKET_ADDRESS = "127.0.0.1"
 SOCKET_ADDRESS = "192.168.1.58"

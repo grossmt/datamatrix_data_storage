@@ -1,0 +1,16 @@
+{
+    "scanners": [
+        {
+            "name": "Scanner #1",
+            "address":"192.168.88.43",
+            "port": 5001,
+            "id": "0x01"
+        },
+        {
+            "name": "Scanner #2",
+            "address":"192.168.88.43",
+            "port": 5001,
+            "id": "0x02"
+        }
+    ]
+}
