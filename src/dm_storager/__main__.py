@@ -1,28 +1,62 @@
+from pathlib import Path
 from sys import byteorder
 import time
-
-from dm_storager.SocketListener import SockerHandler
-from dm_storager.structs import StateControlPacket, ScannerStat
 import asyncio
+import logging
 
-if __name__ == "__main__":
+from json import JSONDecodeError
 
-    print("Start of programm")
-    scanners_handler = SockerHandler()
+from dm_storager.SocketListener import SocketHandler
+from dm_storager.structs import StateControlPacket, ScannerStat
 
-    moro_scanner = ScannerStat(address="192.168.1.58", port=5001, scanner_id=0x01)
-    moro_big_scanner = ScannerStat(address="192.168.1.10", port=5001, scanner_id=0x02)
+from dm_storager.json_parser import (
+    scanners_settings_reading,
+    is_valid_scanner_info
+)
 
-    # scanners_handler.add_scanner(moro_scanner)
-    # scanners_handler.add_scanner(moro_big_scanner)
+from dm_storager.const import SCANNER_SETTINGS
 
-    # scanners_handler.open("all")
-    # scanners_handler.open(moro_scanner)
-    # scanners_handler.open(moro_big_scanner)
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
-    # asyncio.run(scanners_handler.ping(moro_scanner))
-    # asyncio.run(scanners_handler.ping(moro_big_scanner))
+def main(settings_path: Path = SCANNER_SETTINGS):
+    LOGGER.info("Start of programm")
+
+    try:
+        scanners_json_settings = scanners_settings_reading()
+    except FileNotFoundError:
+        LOGGER.error(f"{str(settings_path)} file not found!")
+        LOGGER.error("Closing app.")
+        exit(0)
+    except JSONDecodeError as j_error:
+        LOGGER.error("An exception during json reading occurs:")
+        LOGGER.error(str(j_error))
+        exit(0)
+    except Exception as ex:
+        LOGGER.error("An unhanlded error during json reading occurs:")
+        print(str(ex))
+        LOGGER.error("Closing app.")
+        exit(0)
+
+    scanners_handler = SocketHandler()
+
+    for record in scanners_json_settings["scanners"]:
+
+        scanner = ScannerStat(
+            address=record["address"],
+            port=record["port"],
+            scanner_id=hex(int(record["id"], 16))
+        )
+        validation_result = is_valid_scanner_info(scanner)
+        if validation_result.result:
+            scanners_handler.add_scanner(scanner)
+            scanners_handler.open(scanner)
+            asyncio.run(scanners_handler.ping(scanner))
+        else:
+            LOGGER.error("Scanner info is not valid!")
+            LOGGER.error(f"Reason: {validation_result.msg}")
 
     asyncio.run(scanners_handler.listen())
 
-    pass
+if __name__ == "__main__":
+    main()
