@@ -22,7 +22,6 @@ from dm_storager.const import (
     SOCKET_PORT_LISTENER,
     DEFAULT_SCANNER_ID,
     SCANNER_PING_TIMEOUT,
-    MAX_SCANNERS_COUNT,
 )
 
 from dm_storager.structs import (
@@ -73,9 +72,30 @@ def listening_thread(connection, ip, port):
 
 def test_process(scanner: ScannerHandler):
     pid = os.getpid()
-    while True:
-        print(f"Scanner #{scanner.scanner.scanner_id}, process: {pid}")
-        time.sleep(1)
+    print(f"Scanner #{scanner.scanner.scanner_id}, process: {pid}")
+
+    scanner.is_open = False
+    scanner.scanner.packet_id = 0
+
+    # scanner.scanner_server_socket.connect(
+    #     (scanner.scanner.address, scanner.scanner.port)
+    # )
+
+    scanner.scanner_client_socket.listen(1)
+
+    connection, address = scanner.scanner_client_socket.accept()
+    ip, port = str(address[0]), str(address[1])
+
+    print(f"Got connection from {ip}:{port}")
+
+    b_scanner_packet = connection.recv(1024)
+    scanner_packet = b_scanner_packet.decode("utf8").rstrip()
+    print(f"Processed result: {scanner_packet}")
+    # connection.close()
+    # connection.connect()
+    # connection.listen()
+    time.sleep(1)
+
     pass
 
 
