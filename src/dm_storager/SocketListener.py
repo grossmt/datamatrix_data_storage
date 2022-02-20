@@ -1,8 +1,12 @@
 from operator import truediv
+from struct import pack
 import time
-import sys
+
+import os
 
 import multiprocessing
+import logging
+
 from multiprocessing import Process
 from typing import Union, Optional, List
 from threading import Thread
@@ -18,74 +22,110 @@ from dm_storager.const import (
     SOCKET_PORT_LISTENER,
     DEFAULT_SCANNER_ID,
     SCANNER_PING_TIMEOUT,
+    MAX_SCANNERS_COUNT,
 )
 
 from dm_storager.structs import (
     StateControlPacket,
     SettingsSetRequestPacket,
     ScannerStat,
+    ScannerHandler,
 )
 
-from dm_storager.__main__ import LOGGER
+# from dm_storager.__main__ import LOGGER
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
-def _client_thread(connection, ip, port, max_buffer_size=5120):
+
+def listening_thread(connection, ip, port):
 
     is_active = True
 
     while is_active:
-        client_input = _receive_input(connection, max_buffer_size)
 
-        if "--QUIT--" in client_input:
-            print("Client is requesting to quit")
-            connection.close()
-            print("Connection " + ip + ":" + port + " closed")
-            is_active = False
-        else:
-            print("Processed result: {}".format(client_input))
-            connection.sendall("-".encode("utf8"))
+        def process_input(connection, max_buffer_size=5120) -> Optional[str]:
+            b_scanner_packet = connection.recv(max_buffer_size)
+            scanner_packet = b_scanner_packet.decode(
+                "utf8"
+            ).rstrip()  # decode and strip end of line
+            return scanner_packet
+
+        def parse_input(message: str) -> Union[StateControlPacket, None]:
+            packet = StateControlPacket()
+            packet.preambula = message[0:6]
+            packet.scanner_ID = message[6:8]
+            packet.packet_ID = message[8:10]
+            packet.packet_code = message[10:11]
+            packet.reserved = message[11:]
+
+            return packet
+
+        scanner_packet = process_input(connection)
+
+        if scanner_packet:
+            LOGGER.info(f"Got connect from {ip}:{port}")
+            LOGGER.debug(f"Processed result: {scanner_packet}")
+
+            packet = parse_input(scanner_packet)
+
+            pass
 
 
-def _receive_input(connection, max_buffer_size):
-    client_input = connection.recv(max_buffer_size)
-    client_input_size = sys.getsizeof(client_input)
-
-    if client_input_size > max_buffer_size:
-        print("The input size is greater than expected {}".format(client_input_size))
-
-    decoded_input = client_input.decode("utf8").rstrip()  # decode and strip end of line
-    result = decoded_input
-
-    return result
+def test_process(scanner: ScannerHandler):
+    pid = os.getpid()
+    while True:
+        print(f"Scanner #{scanner.scanner.scanner_id}, process: {pid}")
+        time.sleep(1)
+    pass
 
 
 class SocketHandler(object):
     def __init__(
         self,
-        # scanner_address: str = SOCKET_ADDRESS,
-        # port: int = SOCKET_PORT,
     ) -> None:
-        self._sockets: List[socket] = []
         self._scanners: List[ScannerStat] = []
+
+        self._server_sockets: List[socket] = []
 
         self._client_socket = socket(AF_INET, SOCK_STREAM)
         self._client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self._client_socket.bind(("", SOCKET_PORT_LISTENER))
+
         self._is_open = False
+
+        #
+
+        self._scanners_handlers: List[ScannerHandler] = []
 
     def add_scanner(self, new_scanner: ScannerStat) -> None:
 
-        present_ids = [x.scanner_id for x in self._scanners]
-        if new_scanner.scanner_id in present_ids:
+        present_scanners = [x.scanner.scanner_id for x in self._scanners_handlers]
+
+        if new_scanner.scanner_id in present_scanners:
             LOGGER.warning("Scanner with given ID already exists!")
             return
 
-        self._scanners.append(new_scanner)
-        new_socket = socket(AF_INET, SOCK_STREAM)
-        self._sockets.append(new_socket)
+        new_server_socket = socket(AF_INET, SOCK_STREAM)
+
+        new_client_socket = socket(AF_INET, SOCK_STREAM)
+        new_client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        new_client_socket.bind(("", SOCKET_PORT_LISTENER))
+
+        sh = ScannerHandler(
+            scanner=new_scanner,
+            scanner_client_socket=new_client_socket,
+            scanner_server_socket=new_server_socket,
+            is_open=False,
+            pid=None,
+        )
+
+        self._scanners_handlers.append(sh)
+
+    async def run_scanner(self, scanner: ScannerHandler) -> None:
+        multiprocessing.set_start_method("spawn", force=True)
+        Process(target=test_process, args=(scanner,)).start()
 
     def open(self, scanner: ScannerStat) -> None:
-
-        # open specified
         i = self._scanners.index(scanner)
         if self._scanners[i].is_open:
             LOGGER.warning(f"Scanner #{scanner.scanner_id} was already opened")
@@ -94,58 +134,73 @@ class SocketHandler(object):
         self._scanners[i].packet_id = 0
 
         try:
-            self._sockets[0].connect(
+            self._scanners[i].scanner_socket.connect(
                 (self._scanners[i].address, self._scanners[i].port)
             )
             self._scanners[i].is_open = True
+        except TimeoutError:
+            LOGGER.error("Timeout on scanner connection")
+            LOGGER.error(f"Scanner id: {self._scanners[i].scanner_id}")
+            LOGGER.error(f"Scanner address: {self._scanners[i].address}")
+            LOGGER.error(f"Scanner port: {self._scanners[i].port}")
+
         except Exception as ex:
-            print(str(ex))
-            self._sockets[0].close()
-            self._is_open = False
+            LOGGER.error("An exception occurs during socket opening:")
+            LOGGER.error(f"Scanner id: {self._scanners[i].scanner_id}")
+            LOGGER.error(f"Scanner address: {self._scanners[i].address}")
+            LOGGER.error(f"Scanner port: {self._scanners[i].port}")
+            LOGGER.error(str(ex))
+            self._scanners[i].scanner_socket.close()
 
     async def listen(self):
         if self._is_open is True:
-            print("Already listening")
+            LOGGER.warning("Already listening")
             return
 
-        # self._client_socket.shutdown(SHUT_WR)
-        self._client_socket.listen(5)
+        self._client_socket.listen(MAX_SCANNERS_COUNT)
 
         while True:
             try:
                 connection, address = self._client_socket.accept()
                 ip, port = str(address[0]), str(address[1])
-
-                print("Connected with " + ip + ":" + port)
-                Thread(target=_client_thread, args=(connection, ip, port)).start()
-            except Exception:
-                print("Thread did not start.")
+                LOGGER.info(f"Got connection from {ip}:{port}")
+                Thread(target=listening_thread, args=(connection, ip, port)).start()
+            except Exception as ex:
+                LOGGER.error("Server thread did not started.")
+                LOGGER.error(f"Reason: {str(ex)}")
+                continue
 
         self._client_socket.close()
 
     async def ping(self, scanner):
 
         i = self._scanners.index(scanner)
-
-        if self._scanners[i].is_open is False:
-            print("Pinging closed scanner socket")
+        given_scaner = self._scanners[i]
+        if given_scaner.is_open is False:
+            LOGGER.warning("Trying to ping closed scanner.")
+            LOGGER.warning(f"Scanner ID: {self._scanners[i].scanner_id}")
+            LOGGER.warning(f"Scanner Address: {self._scanners[i].address}")
+            LOGGER.warning(f"Scanner Port: {self._scanners[i].port}")
             return
 
-        # current_packet_id = 0
-
         packet = StateControlPacket()
-        packet.scanner_ID = self._scanners[i].scanner_id
-        packet.packet_ID = self._scanners[i].packet_id
+        packet.scanner_ID = given_scaner.scanner_id
+        packet.packet_ID = given_scaner.packet_id
 
-        b_packet = self._build(packet)
+        bytes_packet = self._build(packet)
 
         while True:
             try:
-                self._sockets[0].send(b_packet)
+                # self._server_sockets[0].send(bytes_packet)
+                given_scaner.scanner_socket.send(bytes_packet)
+                LOGGER.debug(f"Ping of scanner {given_scaner.scanner_id}")
+                LOGGER.debug(f"Send to socket {bytes_packet}")
+
                 time.sleep(SCANNER_PING_TIMEOUT)
-                print(f"send to socket {b_packet}")
-            except ConnectionResetError:
-                print("Server closed connect")
+
+            except ConnectionResetError as ex:
+                LOGGER.error("Server closed connect")
+                LOGGER.error(f"Reason: {str(ex)}")
                 return False
             except Exception as ex:
                 print(str(ex))

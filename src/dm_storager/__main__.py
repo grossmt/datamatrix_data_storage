@@ -9,21 +9,19 @@ from json import JSONDecodeError
 from dm_storager.SocketListener import SocketHandler
 from dm_storager.structs import StateControlPacket, ScannerStat
 
-from dm_storager.json_parser import (
-    scanners_settings_reading,
-    is_valid_scanner_info
-)
+from dm_storager.json_parser import scanners_settings_reading, is_valid_scanner_info
 
 from dm_storager.const import SCANNER_SETTINGS
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
+
 def main(settings_path: Path = SCANNER_SETTINGS):
     LOGGER.info("Start of programm")
 
     try:
-        scanners_json_settings = scanners_settings_reading()
+        scanners_json_settings = scanners_settings_reading(SCANNER_SETTINGS)
     except FileNotFoundError:
         LOGGER.error(f"{str(settings_path)} file not found!")
         LOGGER.error("Closing app.")
@@ -33,7 +31,7 @@ def main(settings_path: Path = SCANNER_SETTINGS):
         LOGGER.error(str(j_error))
         exit(0)
     except Exception as ex:
-        LOGGER.error("An unhanlded error during json reading occurs:")
+        LOGGER.error("An unhandled error during json reading occurs:")
         print(str(ex))
         LOGGER.error("Closing app.")
         exit(0)
@@ -45,18 +43,20 @@ def main(settings_path: Path = SCANNER_SETTINGS):
         scanner = ScannerStat(
             address=record["address"],
             port=record["port"],
-            scanner_id=hex(int(record["id"], 16))
+            scanner_id=record["id"],
         )
         validation_result = is_valid_scanner_info(scanner)
         if validation_result.result:
             scanners_handler.add_scanner(scanner)
-            scanners_handler.open(scanner)
-            asyncio.run(scanners_handler.ping(scanner))
         else:
             LOGGER.error("Scanner info is not valid!")
             LOGGER.error(f"Reason: {validation_result.msg}")
 
-    asyncio.run(scanners_handler.listen())
+    for scanner in scanners_handler._scanners_handlers:
+        asyncio.run(scanners_handler.run_scanner(scanner))
 
+    while True:
+        pass
+    
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
-
+from socket import socket
+from typing import Optional
 
 from dm_storager.const import (
     PREAMBULA,
@@ -61,4 +62,13 @@ class ScannerStat:
     port: int
     scanner_id: int
     packet_id: int = 0
+
+
+@dataclass
+class ScannerHandler:
+    scanner: ScannerStat
+    scanner_client_socket: Optional[socket] = None
+    scanner_server_socket: Optional[socket] = None
+
     is_open: bool = False
+    pid: Optional[int] = None
