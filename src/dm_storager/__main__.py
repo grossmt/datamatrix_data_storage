@@ -13,6 +13,8 @@ from dm_storager.json_parser import scanners_settings_reading, is_valid_scanner_
 
 from dm_storager.const import SCANNER_SETTINGS
 
+from dm_storager.server import Server
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
@@ -59,4 +61,11 @@ def main(settings_path: Path = SCANNER_SETTINGS):
         pass
     
 if __name__ == "__main__":
-    main()
+
+    server = Server("localhost", 5001)
+
+    server.start_server()
+    server.loop()
+    server.stop_server()
+
+    # main()
