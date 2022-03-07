@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from socket import socket
+from threading import Thread
 from typing import Optional
 
 from dm_storager.const import (
@@ -57,18 +58,23 @@ class SettingsSetResponse(HeaderPacket):
 
 
 @dataclass
-class ScannerStat:
+class ScannerInfo:
     address: str
     port: int
     scanner_id: int
-    packet_id: int = 0
-
 
 @dataclass
 class ScannerHandler:
-    scanner: ScannerStat
-    scanner_client_socket: Optional[socket] = None
-    scanner_server_socket: Optional[socket] = None
+    scanner_info: ScannerInfo
+    scanner_socket: Optional[socket] = None
 
+    packet_id: int = 0
     is_open: bool = False
-    pid: Optional[int] = None
+    scanner_thread: Optional[Thread] = None
+
+@dataclass 
+class ClientMessage:
+    client_thread: Thread
+    client_ip: str
+    client_port: int
+    client_message: str
