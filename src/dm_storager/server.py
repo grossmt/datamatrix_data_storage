@@ -109,6 +109,16 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         bytes_packet = build(control_packet)
         scanner_socket.send(bytes_packet)
 
+    def parse_input_message(msg: str):
+        packet = StateControlPacket()
+        packet.preambula = msg[0:6]
+        packet.scanner_ID = msg[6:8]
+        packet.packet_ID = msg[8:10]
+        packet.packet_code = msg[10:11]
+        packet.reserved = msg[11:]
+
+        return packet
+
     def change_settings():
         pass
 
