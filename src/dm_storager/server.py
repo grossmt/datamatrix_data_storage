@@ -1,3 +1,4 @@
+from asyncio import futures
 from dataclasses import dataclass
 import socket
 import time
@@ -93,18 +94,31 @@ def build(packet: Union[StateControlPacket, SettingsSetRequestPacket]) -> bytes:
     return bytes_pack
 
 
+PING_PERIOD = 4
+PING_TIMEOUT = 2
+
+
 def scanner_process(scanner: ScannerInfo, queue: Queue):
 
     packet_id = 0
 
     is_alive = True
-
+    received_ping = False
     scanner_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     scanner_socket.connect((scanner.address, scanner.port))
 
+    async def ping_responce():
+        nonlocal received_ping
+        while received_ping is False:
+            await asyncio.sleep(0.1)
+
     async def state_contol_logic():
         nonlocal packet_id
-        
+        nonlocal received_ping
+        nonlocal is_alive
+
+        # async with timeout(5) as cm:
+
         LOGGER.info(
             f"Sending ping packet #{packet_id} to scanner #{scanner.scanner_id}"
         )
@@ -117,7 +131,16 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         packet_id += 1
         packet_id %= 256
 
-        await asyncio.sleep(10)
+        try:
+            await asyncio.wait_for(ping_responce(), timeout=PING_TIMEOUT)
+        except asyncio.exceptions.TimeoutError:
+            LOGGER.error("PING TIMEOUT")
+            is_alive = False
+        else:
+            LOGGER.info("PING PACKET ACCEPTED")
+            received_ping = False
+
+        await asyncio.sleep(PING_PERIOD)
 
     def parse_input_message(msg: str):
         packet = StateControlPacket()
@@ -130,21 +153,24 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         return packet
 
     async def queue_hanler():
+        nonlocal received_ping
+
         if queue.empty():
             pass
         else:
             message = queue.get()
             LOGGER.info(f"Scanner #{scanner.scanner_id} got message: {message}")
             parsed_packet = parse_input_message(message)
+            received_ping = True
 
     while is_alive:
-
         asyncio.run(state_contol_logic())
         asyncio.run(queue_hanler())
 
         time.sleep(0.5)
 
-    # scanner_socket.close()
+    LOGGER.error("Scanner didn't response. Fail.")
+    scanner_socket.close()
 
 
 @dataclass
