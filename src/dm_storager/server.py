@@ -5,9 +5,11 @@ import logging
 import json
 import multiprocessing, asyncio
 import os
+import datetime
 
+from async_timeout import timeout, timeout_at
 from multiprocessing import Process, Queue
-from typing import Tuple, List, Optional, Union
+from typing import Tuple, List, Optional, Union, Any
 from pathlib import Path
 from json import JSONDecodeError
 
@@ -93,21 +95,29 @@ def build(packet: Union[StateControlPacket, SettingsSetRequestPacket]) -> bytes:
 
 def scanner_process(scanner: ScannerInfo, queue: Queue):
 
-    # LOGGER.debug(f"process id: { os.getpid()}")
-
     packet_id = 0
+
+    is_alive = True
 
     scanner_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     scanner_socket.connect((scanner.address, scanner.port))
 
-    async def send_state_control_packet(_id: int):
-
+    async def state_contol_logic():
+        nonlocal packet_id
+        
+        LOGGER.info(
+            f"Sending ping packet #{packet_id} to scanner #{scanner.scanner_id}"
+        )
         control_packet = StateControlPacket(
-            scanner_ID=scanner.scanner_id, packet_ID=_id
+            scanner_ID=scanner.scanner_id, packet_ID=packet_id
         )
 
         bytes_packet = build(control_packet)
         scanner_socket.send(bytes_packet)
+        packet_id += 1
+        packet_id %= 256
+
+        await asyncio.sleep(10)
 
     def parse_input_message(msg: str):
         packet = StateControlPacket()
@@ -119,19 +129,22 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
 
         return packet
 
-    def change_settings():
-        pass
+    async def queue_hanler():
+        if queue.empty():
+            pass
+        else:
+            message = queue.get()
+            LOGGER.info(f"Scanner #{scanner.scanner_id} got message: {message}")
+            parsed_packet = parse_input_message(message)
 
-    def request_data():
-        pass
+    while is_alive:
 
-    while True:
-        time.sleep(1)
+        asyncio.run(state_contol_logic())
+        asyncio.run(queue_hanler())
 
-        asyncio.run(send_state_control_packet(packet_id))
-        packet_id += 1
+        time.sleep(0.5)
 
-    scanner_socket.close()
+    # scanner_socket.close()
 
 
 @dataclass
@@ -144,7 +157,7 @@ class _Scanner:
 class Server:
     def __init__(self, ip: str, port: int) -> None:
         self._queue = ServerQueue(ip, port)
-        self._scanners_processes: List[_Scanner] = []
+        self._scanners: List[_Scanner] = []
 
     @property
     def connection_info(self) -> Tuple[str, int]:
@@ -160,7 +173,7 @@ class Server:
     def run_server(self) -> None:
         multiprocessing.set_start_method("spawn", force=True)
 
-        for scanner in self._scanners_processes:
+        for scanner in self._scanners:
             scanner._process.start()
 
         while True:
@@ -172,10 +185,27 @@ class Server:
     def handle(self, client_message: ClientMessage):
         LOGGER.info("Got message!")
 
-        LOGGER.info(f"Client thread: {client_message.client_thread}")
+        # LOGGER.info(f"Client thread: {client_message.client_thread}")
         LOGGER.info(f"Client IP: {client_message.client_ip}")
         LOGGER.info(f"Client port: {client_message.client_port}")
-        LOGGER.info(f"Received packet: {client_message.client_message}")
+
+        try:
+            scanner_id_str = client_message.client_message[6:8]
+            scanner_id_int = int.from_bytes(
+                bytes(scanner_id_str, "utf-8"), byteorder="big"
+            )
+
+        except Exception:
+            LOGGER.error("Bad scanner id")
+            LOGGER.error(f"Message: {client_message.client_message}")
+            return
+
+        for scanner in self._scanners:
+            if scanner._info.scanner_id == scanner_id_int:
+                scanner._queue.put(client_message.client_message)
+                return
+
+        LOGGER.error(f"Got message from unregistred scanner: {scanner_id_int}")
 
     def _register_scanners(self) -> None:
 
@@ -190,4 +220,4 @@ class Server:
                 _process=Process(target=scanner_process, args=(record, _q)),
                 _queue=_q,
             )
-            self._scanners_processes.append(new_scanner)
+            self._scanners.append(new_scanner)
