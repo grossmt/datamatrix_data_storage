@@ -4,7 +4,7 @@ from dm_storager.server import Server
 from dm_storager.enviroment import HOST_IP, HOST_PORT
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
 )
 
 LOGGER = logging.getLogger("Main Programm")
