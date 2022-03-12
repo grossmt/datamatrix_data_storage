@@ -19,7 +19,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):  # noqa: WPS110
         while True:
-            b_data = self.request.recv(1024)
+            b_data = self.request.recv(2048)
             data = b_data.decode("utf8").rstrip()  # decode and strip end of line
 
             cur_thread = threading.current_thread()
