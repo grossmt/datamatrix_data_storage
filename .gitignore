@@ -28,3 +28,7 @@ __pycache__/
 *.so
 *~
 .env
+
+#logs
+logs/*
+!logs/.gitkeep
