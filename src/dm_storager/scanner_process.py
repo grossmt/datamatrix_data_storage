@@ -5,11 +5,13 @@ import time
 
 from multiprocessing import Process, Queue
 
-from dm_storager.structs import ScannerInfo, StateControlPacket
+from dm_storager.structs import ScannerInfo
+from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.packet_builer import build_packet
 from dm_storager.utils.packet_parser import parse_input_message
 
 from dm_storager.schema import (
+    StateControlPacket,
     ScannerControlResponse,
     SettingsSetResponse,
     ArchieveDataResponce,
@@ -21,8 +23,7 @@ PING_TIMEOUT = 2
 
 def scanner_process(scanner: ScannerInfo, queue: Queue):
 
-    SCANNER_LOGGER = logging.getLogger(f"Scanner #{scanner.scanner_id}")
-    SCANNER_LOGGER.setLevel(logging.INFO)
+    scanner_logger = configure_logger(f"Scanner #{scanner.scanner_id}", is_verbose=True)
 
     packet_id: int = 0
     control_packet_id: int = 0
@@ -31,7 +32,15 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
     received_ping: bool = False
 
     scanner_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    scanner_socket.connect((scanner.address, scanner.port))
+    try:
+        scanner_socket.connect((scanner.address, scanner.port))
+    except OSError:
+        scanner_logger.error(f"Connection error: {scanner.address}:{scanner.port}")
+        scanner_logger.error(f"Skipping scanner start.")
+        return
+    except Exception:
+        scanner_logger.exception("Unhandled exception:")
+        return
 
     async def wait_ping_response():
         nonlocal received_ping
@@ -43,7 +52,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         nonlocal received_ping
         nonlocal is_alive
 
-        SCANNER_LOGGER.info(f"Sending ping packet #{packet_id} to scanner")
+        scanner_logger.info(f"Sending ping packet #{packet_id} to scanner")
         control_packet = StateControlPacket(
             scanner_ID=scanner.scanner_id, packet_ID=packet_id
         )
@@ -58,10 +67,10 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         try:
             await asyncio.wait_for(wait_ping_response(), timeout=PING_TIMEOUT)
         except asyncio.exceptions.TimeoutError:
-            SCANNER_LOGGER.error("STATE CONTROL PACKET TIMEOUT")
+            scanner_logger.error("STATE CONTROL PACKET TIMEOUT")
             is_alive = False
         else:
-            SCANNER_LOGGER.info("STATE CONTROL PACKET ACCEPTED")
+            scanner_logger.info("STATE CONTROL PACKET ACCEPTED")
             received_ping = False
 
         await asyncio.sleep(PING_PERIOD)
@@ -73,15 +82,15 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         if packet.packet_id == control_packet_id:
             is_alive = True
         else:
-            SCANNER_LOGGER.error("Received packet id did not match to send packet id")
+            scanner_logger.error("Received packet id did not match to send packet id")
             is_alive = False
 
     def handle_settings_set_response(packet: SettingsSetResponse):
 
         if packet.response_code == 0:
-            SCANNER_LOGGER.info("Settings was succesfully applied!")
+            scanner_logger.info("Settings was succesfully applied!")
         else:
-            SCANNER_LOGGER.error(
+            scanner_logger.error(
                 f"An error on scanner settings applying occurs: {packet.response_code}"
             )
 
@@ -92,7 +101,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
 
         if not queue.empty():
             message = queue.get()
-            SCANNER_LOGGER.info(f"Got message: {message}")
+            scanner_logger.info(f"Got message: {message}")
             parsed_packet = parse_input_message(message)
 
             if isinstance(parsed_packet, ScannerControlResponse):
@@ -108,8 +117,8 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
 
         time.sleep(0.1)
 
-    SCANNER_LOGGER.error("State control packet was not received in time.")
-    SCANNER_LOGGER.error("Closing socket.")
+    scanner_logger.error("State control packet was not received in time.")
+    scanner_logger.error("Closing socket.")
     scanner_socket.close()
 
-    SCANNER_LOGGER.error(f"Closing process.")
+    scanner_logger.error(f"Closing process.")

@@ -1,12 +1,9 @@
 from typing import Union
 
-from dm_storager.structs import (
-    StateControlPacket,
-    SettingsSetRequestPacket
-)
+from dm_storager.schema import StateControlPacket
 
 
-def build_packet(packet: Union[StateControlPacket, SettingsSetRequestPacket]) -> bytes:
+def build_packet(packet: Union[StateControlPacket, None]) -> bytes:
 
     bytes_pack = bytearray()
 

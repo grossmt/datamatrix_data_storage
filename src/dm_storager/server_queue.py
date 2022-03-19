@@ -1,15 +1,9 @@
-# codex_queue.py
 import threading
 import socketserver
-import logging
-import time
 
 from typing import List, Tuple
 
 from dm_storager.structs import ClientMessage
-
-LOGGER = logging.getLogger("Main Programm")
-LOGGER.setLevel(logging.INFO)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -50,7 +44,6 @@ class ServerQueue:
 
     def start_server(self):
         self.server_thread.start()
-        LOGGER.info(f"Server loop running in thread: {self.server_thread.name}")
 
     def stop_server(self):
         self.server.shutdown()

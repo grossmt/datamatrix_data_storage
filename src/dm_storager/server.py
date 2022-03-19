@@ -4,17 +4,20 @@ import multiprocessing
 
 from multiprocessing import Process, Queue
 from typing import Tuple, List
+from dm_storager.utils.logger import configure_logger
 
-from dm_storager.utils.scanner_network_settings_resolver import resolve_scanners_settings
+from dm_storager.utils.scanner_network_settings_resolver import (
+    resolve_scanners_settings,
+)
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
-from dm_storager.structs import (
-    ClientMessage,
-    Scanner
-)
+from dm_storager.structs import ClientMessage, Scanner
 
-LOGGER = logging.getLogger("Server")
-LOGGER.setLevel(logging.INFO)
+# LOGGER = logging.getLogger("Server")
+# LOGGER.setLevel(logging.INFO)
+
+LOGGER = configure_logger("Server", True)
+
 
 class Server:
     def __init__(self, ip: str, port: int) -> None:
@@ -82,4 +85,3 @@ class Server:
                 queue=_q,
             )
             self._scanners.append(new_scanner)
-        

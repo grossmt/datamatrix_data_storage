@@ -1,11 +1,12 @@
 import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+# )
 
-LOGGER = logging.getLogger("Main Programm")
-LOGGER.setLevel(logging.INFO)
+# LOGGER = logging.getLogger("Main Programm")
+# LOGGER.setLevel(logging.INFO)
+
 
 def str_to_log_level(level: str, default: int = logging.DEBUG):
     """Convert log level name, ignoring case, to int representation."""
@@ -14,26 +15,39 @@ def str_to_log_level(level: str, default: int = logging.DEBUG):
         default,
     )
 
-def configure_root_logger(name: str, is_verbose: bool) -> logging.Logger:
+
+def configure_logger(name: str, is_verbose: bool = False) -> logging.Logger:
+
+    log_level = logging.DEBUG if is_verbose else logging.INFO
+
+    logging.basicConfig(level=log_level)
+
     root = logging.getLogger()
 
-    if is_verbose:
-        log_level = logging.DEBUG
-    else:
-        log_level = logging.INFO
-
     # Setup stderr handler
-    # stderr_handler = logging.StreamHandler()
-    # stderr_handler.setLevel(log_level)
-    # stderr_handler.setFormatter(
-    #     logging.Formatter(
-    #         "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
-    #     ),
-    # )
-    # root.addHandler(stderr_handler)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
+        ),
+    )
+    # Setup file handler
+    try:
+        file_handler = logging.FileHandler(filename="logs/server_log")
+    except FileNotFoundError:
+        pass
 
-    root.setLevel(log_level)
+    file_handler.setLevel(log_level)
+    file_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
+        ),
+    )
+
+    root.addHandler(console_handler)
+    root.addHandler(file_handler)
+
     root.name = name
-    
 
     return root

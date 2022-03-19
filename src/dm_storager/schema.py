@@ -1,11 +1,19 @@
 from dataclasses import dataclass
 
-from dm_storager.const import (
-    PREAMBULA,
-    STATE_CONTROL_CODE,
-    STATE_CONTROL_RESERVED,
-    SETTINGS_SET_CODE,
-)
+# from dm_storager.const import (
+#     PREAMBULA,
+#     STATE_CONTROL_CODE,
+#     STATE_CONTROL_RESERVED,
+#     SETTINGS_SET_CODE,
+# )
+
+
+PREAMBULA = "RFLABC"
+
+STATE_CONTROL_CODE = 0x37
+STATE_CONTROL_RESERVED = 0x00
+SETTINGS_SET_CODE = 0x13
+ARCHIEVE_DATA_CODE = 0x45
 
 
 @dataclass
@@ -16,6 +24,7 @@ class HeaderPacket:
     packet_ID: int = 0
     packet_ID_len: int = 2
 
+
 @dataclass
 class SettingsData(HeaderPacket):
     product_name: str = ""  # 32 bytes
@@ -25,6 +34,7 @@ class SettingsData(HeaderPacket):
     network_mask: str = ""  # 4 bytes
     listener_ip: str = ""  # 4 bytes
     reserved: str = ""  # 46 bytes
+
 
 @dataclass
 class StateControlPacket(HeaderPacket):
