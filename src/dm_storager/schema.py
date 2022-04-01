@@ -1,13 +1,5 @@
 from dataclasses import dataclass
 
-# from dm_storager.const import (
-#     PREAMBULA,
-#     STATE_CONTROL_CODE,
-#     STATE_CONTROL_RESERVED,
-#     SETTINGS_SET_CODE,
-# )
-
-
 PREAMBULA = "RFLABC"
 
 STATE_CONTROL_CODE = 0x37

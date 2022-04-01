@@ -1,5 +1,4 @@
 import time
-import logging
 import multiprocessing
 
 from multiprocessing import Process, Queue
@@ -11,10 +10,7 @@ from dm_storager.utils.scanner_network_settings_resolver import (
 )
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
-from dm_storager.structs import ClientMessage, Scanner
-
-# LOGGER = logging.getLogger("Server")
-# LOGGER.setLevel(logging.INFO)
+from dm_storager.structs import ClientMessage, Scanner, ScannerInfo
 
 LOGGER = configure_logger("Server", True)
 
@@ -26,11 +22,17 @@ class Server:
 
     @property
     def connection_info(self) -> Tuple[str, int]:
+        """Provides info about server ip and port.
+
+        Returns:
+            (str, int): IP-address and port of server.
+        """
+
         return self._queue.server.server_address
 
-    def start_server(self) -> None:
+    def init_server(self) -> None:
         self._queue.start_server()
-        self._register_scanners()
+        self._register_scanners_from_settings()
 
     def stop_server(self) -> None:
         self._queue.stop_server()
@@ -45,9 +47,9 @@ class Server:
             time.sleep(0.1)
 
             while self._queue.exists():
-                self.handle(self._queue.get())
+                self._handle(self._queue.get())
 
-    def handle(self, client_message: ClientMessage):
+    def _handle(self, client_message: ClientMessage):
         LOGGER.info("Got message!")
 
         LOGGER.info(f"Client IP: {client_message.client_ip}")
@@ -71,7 +73,16 @@ class Server:
 
         LOGGER.error(f"Got message from unregistred scanner: {scanner_id_int}")
 
-    def _register_scanners(self) -> None:
+    def register_single_scanner(self, scanner_info: ScannerInfo):
+        _q: Queue = Queue()
+        new_scanner = Scanner(
+            info=scanner_info,
+            process=Process(target=scanner_process, args=(scanner_info, _q)),
+            queue=_q,
+        )
+        self._scanners.append(new_scanner)
+
+    def _register_scanners_from_settings(self) -> None:
 
         scanners_info_list = resolve_scanners_settings()
         assert scanners_info_list is not None
