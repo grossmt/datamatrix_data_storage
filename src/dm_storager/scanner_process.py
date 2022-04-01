@@ -6,6 +6,9 @@ import time
 from multiprocessing import Process, Queue
 
 from dm_storager.structs import ScannerInfo
+
+from dm_storager.CSVWriter import CSVWriter
+
 from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.packet_builer import build_packet
 from dm_storager.utils.packet_parser import parse_input_message
@@ -18,12 +21,14 @@ from dm_storager.schema import (
 )
 
 PING_PERIOD = 10
-PING_TIMEOUT = 2
+PING_TIMEOUT = 5
 
 
 def scanner_process(scanner: ScannerInfo, queue: Queue):
 
     scanner_logger = configure_logger(f"Scanner #{scanner.scanner_id}", is_verbose=True)
+
+    scanner_csv_writer = CSVWriter(scanner.scanner_id)
 
     packet_id: int = 0
     control_packet_id: int = 0
@@ -36,7 +41,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         scanner_socket.connect((scanner.address, scanner.port))
     except OSError:
         scanner_logger.error(f"Connection error: {scanner.address}:{scanner.port}")
-        scanner_logger.error(f"Skipping scanner start.")
+        scanner_logger.error("Skipping scanner start.")
         return
     except Exception:
         scanner_logger.exception("Unhandled exception:")
@@ -95,7 +100,10 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
             )
 
     def handle_archieve_response(control_packet: ArchieveDataResponce):
-        pass
+        try:
+            scanner_csv_writer.append_data(control_packet.archieve_data)
+        except Exception:
+            scanner_logger.exception("Storing to CSV Error:")
 
     async def scanner_message_hanler():
 
