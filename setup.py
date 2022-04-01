@@ -14,15 +14,13 @@ from setuptools import setup
 from setuptools import find_namespace_packages as find_packages
 
 setup(
-    name="datamatrix_data_storage",
+    name="dm_storage_server",
     version="0.0.1",
-    description="Client of datamatrix storager",
-    author="Moro",
+    description="Server of datamatrix codes storager",
+    author="RFLABC",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires=[ 
-        "StrEnum"
-    ],
+    install_requires=["StrEnum"],
     package_data={
         "robster.rs_nge100.config": [
             "*.json",
