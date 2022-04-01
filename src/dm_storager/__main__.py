@@ -4,6 +4,7 @@ from dm_storager.server import Server
 from dm_storager.enviroment import HOST_IP, HOST_PORT
 from dm_storager.utils.logger import configure_logger
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Datamatrix Storager")
@@ -15,6 +16,7 @@ if __name__ == "__main__":
     is_verbose = args.v
 
     server = Server(HOST_IP, HOST_PORT)
+
     ip, port = server.connection_info
 
     main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", is_verbose)
@@ -23,8 +25,7 @@ if __name__ == "__main__":
     main_logger.info(f"Server address: {ip}")
     main_logger.info(f"Server port: {port}")
 
-    server.start_server()
-
+    server.init_server()
     try:
         server.run_server()
     except Exception:
