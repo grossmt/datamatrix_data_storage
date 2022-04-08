@@ -15,7 +15,7 @@ API Сервера:
 
 - init_server:
 - run_server:
-- register_single_scanner:
+- register_new_scanner:
 - stop_server:
 
 - connection_info:
