@@ -9,6 +9,7 @@ from dm_storager.structs import (
 )
 from dm_storager.const import SCANNER_SETTINGS
 
+
 class ValidationResult(NamedTuple):
     result: bool
     msg: str
@@ -25,31 +26,34 @@ class ValidationResult(NamedTuple):
 LOGGER = logging.getLogger("Server")
 LOGGER.setLevel(logging.INFO)
 
+
 def resolve_scanners_settings(
     settings_path: Path = SCANNER_SETTINGS,
-) -> Optional[List[ScannerInfo]]:
+) -> List[ScannerInfo]:
+
     LOGGER.info(f"Resolving settings of scanners from {str(settings_path)}")
 
     scanners: List[ScannerInfo] = []
+
     try:
         with open(settings_path, "r") as settings_file:
             scanners_json_settings = json.load(settings_file)
     except FileNotFoundError:
         LOGGER.error(f"{str(settings_path)} file not found!")
-        return None
+        return []
     except json.JSONDecodeError as j_error:
         LOGGER.error("An exception during json reading occurs:")
         LOGGER.error(str(j_error))
-        return None
+        return []
     except Exception as ex:
         LOGGER.error("An unhandled error during json reading occurs:")
         print(str(ex))
-        return None
+        return []
 
     for record in scanners_json_settings["scanners"]:
         new_scanner = ScannerInfo(
             address=record["address"],
-            port=record["port"],
+            port=None,
             scanner_id=record["id"],
         )
         scanners.append(new_scanner)
