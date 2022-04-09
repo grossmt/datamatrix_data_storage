@@ -14,6 +14,7 @@ class ClientMessage:
 
 @dataclass
 class ScannerInfo:
+    name: str
     address: str
     port: Optional[int]
     scanner_id: int
