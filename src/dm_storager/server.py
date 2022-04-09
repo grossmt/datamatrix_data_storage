@@ -14,8 +14,6 @@ from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
 from dm_storager.structs import ClientMessage, Scanner, ScannerInfo
 
-# LOGGER = configure_logger("Server", True)
-
 
 class Server:
     def __init__(self, ip: str, port: int, registred_clients_settings: Path) -> None:
@@ -48,16 +46,22 @@ class Server:
         multiprocessing.set_start_method("spawn", force=True)
 
         self._queue.start_server()
+        ip, port = self.connection_info
+        self._logger.info("Server initialized:")
+        self._logger.info(f"Server IP: {ip}")
+        self._logger.info(f"Server Port: {port}")
+        
         self._register_scanners_from_settings()
+
 
     # DONE
     def register_single_scanner(self, scanner_info: ScannerInfo) -> None:
         """Performs registraion of a given scanner."""
 
-        is_id_unique = scanner_info.scanner_id in list(
+        is_id_unique: bool = scanner_info.scanner_id in list(
             x.scanner_id for x in self._registred_clients
         )
-        if is_id_unique:
+        if not is_id_unique:
             self._registred_clients.append(scanner_info)
             self._logger.info("Registered scanner:")
             self._logger.info(f"Scanner name: {scanner_info.name}")

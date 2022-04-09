@@ -7,45 +7,28 @@ from pathlib import Path
 from dm_storager.structs import (
     ScannerInfo,
 )
-
-
-class ValidationResult(NamedTuple):
-    result: bool
-    msg: str
-
-
-# def is_valid_scanner_info(scanner: ScannerStat) -> ValidationResult:
-
-#     r = ValidationResult(result=True, msg="")
-#     return r
-#     # r.result = True
-#     # r.msg = ""
-
-
-LOGGER = logging.getLogger("Server")
-LOGGER.setLevel(logging.INFO)
-
+from dm_storager.utils.logger import configure_logger
 
 def resolve_scanners_settings(
     settings_path: Path,
 ) -> List[ScannerInfo]:
 
-    LOGGER.info(f"Resolving settings of scanners from {str(settings_path)}")
-
+    logger = configure_logger(__name__)
+    
     scanners: List[ScannerInfo] = []
 
     try:
         with open(settings_path, "r") as settings_file:
             scanners_json_settings = json.load(settings_file)
     except FileNotFoundError:
-        LOGGER.error(f"{str(settings_path)} file not found!")
+        logger.error(f"{str(settings_path)} file not found!")
         return []
     except json.JSONDecodeError as j_error:
-        LOGGER.error("An exception during json reading occurs:")
-        LOGGER.error(str(j_error))
+        logger.error("An exception during json reading occurs:")
+        logger.error(str(j_error))
         return []
     except Exception as ex:
-        LOGGER.error("An unhandled error during json reading occurs:")
+        logger.error("An unhandled error during json reading occurs:")
         print(str(ex))
         return []
 
