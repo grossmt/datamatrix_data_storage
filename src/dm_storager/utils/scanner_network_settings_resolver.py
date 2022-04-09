@@ -7,7 +7,6 @@ from pathlib import Path
 from dm_storager.structs import (
     ScannerInfo,
 )
-from dm_storager.const import SCANNER_SETTINGS
 
 
 class ValidationResult(NamedTuple):
@@ -28,7 +27,7 @@ LOGGER.setLevel(logging.INFO)
 
 
 def resolve_scanners_settings(
-    settings_path: Path = SCANNER_SETTINGS,
+    settings_path: Path,
 ) -> List[ScannerInfo]:
 
     LOGGER.info(f"Resolving settings of scanners from {str(settings_path)}")
@@ -52,6 +51,7 @@ def resolve_scanners_settings(
 
     for record in scanners_json_settings["scanners"]:
         new_scanner = ScannerInfo(
+            name=record["name"],
             address=record["address"],
             port=None,
             scanner_id=record["id"],
