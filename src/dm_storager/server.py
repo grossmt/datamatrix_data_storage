@@ -3,6 +3,8 @@ import multiprocessing
 
 from multiprocessing import Process, Queue
 from typing import Tuple, List, Optional
+from pathlib import Path
+
 from dm_storager.utils.logger import configure_logger
 
 from dm_storager.utils.scanner_network_settings_resolver import (
@@ -12,15 +14,19 @@ from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
 from dm_storager.structs import ClientMessage, Scanner, ScannerInfo
 
-LOGGER = configure_logger("Server", True)
+# LOGGER = configure_logger("Server", True)
 
 
 class Server:
-    def __init__(self, ip: str, port: int) -> None:
+    def __init__(self, ip: str, port: int, registred_clients_settings: Path) -> None:
         self._queue = ServerQueue(ip, port)
+        self._registred_clients: List[ScannerInfo] = []
+
         self._scanners: List[Scanner] = []
 
-        self._registred_clients: List[ScannerInfo] = []
+        self._settings_path = registred_clients_settings
+
+        self._logger = configure_logger(__name__)
 
     @property
     def connection_info(self) -> Tuple[str, int]:
@@ -32,39 +38,73 @@ class Server:
 
         return self._queue.server.server_address
 
+    # DONE
     def init_server(self) -> None:
+        """Init of server.
+
+        Performs start of server thread and
+        registration of allowed scanners from settings.
+        """
+        multiprocessing.set_start_method("spawn", force=True)
+
         self._queue.start_server()
         self._register_scanners_from_settings()
 
+    # DONE
+    def register_single_scanner(self, scanner_info: ScannerInfo) -> None:
+        """Performs registraion of a given scanner."""
+
+        is_id_unique = scanner_info.scanner_id in list(
+            x.scanner_id for x in self._registred_clients
+        )
+        if is_id_unique:
+            self._registred_clients.append(scanner_info)
+            self._logger.info("Registered scanner:")
+            self._logger.info(f"Scanner name: {scanner_info.name}")
+            self._logger.info(f"Scanner address: {scanner_info.address}")
+            self._logger.info(f"Scanner id: {scanner_info.scanner_id}")
+
+            _q: Queue = Queue()
+
+            new_scanner = Scanner(
+                info=scanner_info,
+                process=Process(target=scanner_process, args=(scanner_info, _q)),
+                queue=_q,
+            )
+            self._scanners.append(new_scanner)
+            self._scanners[-1].process.start()
+
+        else:
+            self._logger.error(
+                f"Scanner with ID {scanner_info.scanner_id} already registred!"
+            )
+
+    # DONE
     def stop_server(self) -> None:
+        self._logger.warning("Stopping server!")
+
+        for scanner in self._scanners:
+            self._logger.warning(
+                f"Scanner #{scanner.info.scanner_id}: killing process."
+            )
+            scanner.process.kill()
+
         self._queue.stop_server()
 
+    # DONE
     def run_server(self) -> None:
-        multiprocessing.set_start_method("spawn", force=True)
-
-        # for scanner in self._scanners:
-        #     scanner.process.start()
-
         while True:
             time.sleep(0.1)
 
             while self._queue.exists():
                 self._handle_client_message(self._queue.get())
 
-    def register_single_scanner(self, scanner_info: ScannerInfo):
-        _q: Queue = Queue()
-        new_scanner = Scanner(
-            info=scanner_info,
-            process=Process(target=scanner_process, args=(scanner_info, _q)),
-            queue=_q,
-        )
-        self._scanners.append(new_scanner)
-
+    # DONE
     def _handle_client_message(self, client_message: ClientMessage):
-        LOGGER.info("Got message!")
+        self._logger.info("Got message!")
 
-        LOGGER.info(f"Client IP: {client_message.client_ip}")
-        LOGGER.info(f"Client port: {client_message.client_port}")
+        self._logger.info(f"Client IP: {client_message.client_ip}")
+        self._logger.info(f"Client port: {client_message.client_port}")
 
         is_registered = self._is_client_registered(client_message.client_ip)
 
@@ -76,54 +116,34 @@ class Server:
                     bytes(scanner_id_str, "utf-8"), byteorder="big"
                 )
             except Exception:
-                LOGGER.error("Bad scanner id")
-                LOGGER.error(f"Message: {client_message.client_message}")
+                self._logger.error("Bad scanner id")
+                self._logger.error(f"Message: {client_message.client_message}")
                 return
 
-            _q = self._get_scanner_queue(
-                ScannerInfo(
-                    address=client_message.client_ip,
-                    port=client_message.client_port,
-                    scanner_id=scanner_id_int,
-                )
-            )
-
-            _q.put(client_message.client_message)
+            for scanner in self._scanners:
+                if scanner_id_int == scanner.info.scanner_id:
+                    scanner.queue.put(client_message.client_message)
+                    break
 
         else:
-            LOGGER.warning(
+            self._logger.warning(
                 f"Unregistred scanner connection {client_message.client_ip} attempt!"
             )
 
+    # DONE
     def _is_client_registered(self, client_address: str) -> bool:
-
         for client in self._registred_clients:
             if client.address == client_address:
                 return True
-
         return False
 
-    def _register_scanners_from_settings(self) -> Queue:
-        self._registred_clients = resolve_scanners_settings()
+    # DONE
+    def _register_scanners_from_settings(self) -> None:
+        clients = resolve_scanners_settings(self._settings_path)
 
-    def _get_scanner_queue(self, new_scanner: ScannerInfo) -> None:
-        """Get queue for process of scanner.
+        for client in clients:
+            self.register_single_scanner(client)
 
-        If scanner process is running
-        """
-        for scanner in self._scanners:
-            if scanner.info.address == new_scanner.address:
-                return scanner.queue
-
-        _q: Queue = Queue()
-        new_scanner = Scanner(
-            info=new_scanner,
-            process=Process(target=scanner_process, args=(new_scanner, _q)),
-            queue=_q,
+        self._logger.info(
+            f"There are {len(self._registred_clients)} registred clients."
         )
-        self._scanners.append(new_scanner)
-
-        # if self._scanners[-1].process.is_alive
-        self._scanners[-1].process.start()
-
-        return self._scanners[-1].queue
