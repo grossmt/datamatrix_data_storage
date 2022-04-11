@@ -1,8 +1,8 @@
 import logging
 
-def get_root_logger() -> logging.Logger:
+def get_root_logger(is_debug: bool = False) -> logging.Logger:
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG if is_debug else logging.INFO)
 
     root = logging.getLogger()
     if (root.hasHandlers()):
@@ -35,7 +35,8 @@ def get_root_logger() -> logging.Logger:
 
 ROOT_LOGGER = get_root_logger()
 
-def configure_logger(name: str) -> logging.Logger:
+def configure_logger(name: str, is_debug: bool = True) -> logging.Logger:
     logger = logging.getLogger(f"{ROOT_LOGGER.name}.{name}")
+    logger.level = logging.DEBUG if is_debug else logging.INFO
     return logger
 

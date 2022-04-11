@@ -2,13 +2,14 @@ import socket
 import asyncio
 import logging
 import time
+import sys
 
 from multiprocessing import Process, Queue
 
-from dm_storager.structs import ScannerInfo
+from dm_storager.structs import ScannerInfo, ScannerSettings
 
 from dm_storager.CSVWriter import CSVWriter
-
+from dm_storager.enviroment import HOST_IP, HOST_PORT
 from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.packet_builer import build_packet
 from dm_storager.utils.packet_parser import parse_input_message
@@ -23,116 +24,128 @@ from dm_storager.schema import (
 PING_PERIOD = 10
 PING_TIMEOUT = 5
 
+PRODUCT_LIST_SIZE = 6
 
 def scanner_process(scanner: ScannerInfo, queue: Queue):
 
-    scanner_logger = configure_logger(f"Scanner #{scanner.scanner_id}")
+    class ScannerHandler():
+        def __init__(self, scanner: ScannerInfo, queue: Queue) -> None:
+            self._queue: Queue = queue
+            self._scanner_csv_writer = CSVWriter(scanner.scanner_id)
+            self._logger = configure_logger(f"Scanner #{scanner.scanner_id}", is_debug=True)
 
-    scanner_logger.info(f"Start of process of {scanner.name}")
+            self._packet_id: int = 0
+            self._control_packet_id: int = 0
 
-    while True:
-        pass
+            self._is_alive: bool = True
+            self._received_ping: bool = False
+            
+            self._products = ScannerSettings(
+                products=list("" for i in range(PRODUCT_LIST_SIZE)),
+                server_ip=HOST_IP,
+                server_port=HOST_PORT
+            )
 
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                self._socket.connect((scanner.address, scanner.port))
+            except (OSError, TimeoutError):
+                self._logger.exception(f"Connection error: {scanner.address}:{scanner.port}")
+                self._logger.error("Skipping scanner start.")
+                self._is_alive = False
+            except Exception:
+                self._socket.exception("Unhandled exception:")
+                self._is_alive = False
 
-    # scanner_csv_writer = CSVWriter(scanner.scanner_id)
+        @property
+        def is_alive(self) -> bool:
+            return self._is_alive
 
-    # packet_id: int = 0
-    # control_packet_id: int = 0
+        def _handle_state_control_response(self, packet: ScannerControlResponse):
+            if packet.packet_id == self._control_packet_id:
+                self._is_alive = True
+            else:
+                self._logger.error("Received packet id did not match to send packet id")
+                self._is_alive = False
 
-    # is_alive: bool = True
-    # received_ping: bool = False
+        def _handle_settings_set_response(self, packet: SettingsSetResponse):
+            if packet.response_code == 0:
+                self._logger.info("Settings was succesfully applied!")
+            else:
+                self._logger.error(
+                    f"An error on scanner settings applying occurs: {packet.response_code}"
+                )
 
-    # scanner_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # try:
-    #     scanner_socket.connect((scanner.address, scanner.port))
-    # except OSError:
-    #     scanner_logger.error(f"Connection error: {scanner.address}:{scanner.port}")
-    #     scanner_logger.error("Skipping scanner start.")
-    #     return
-    # except Exception:
-    #     scanner_logger.exception("Unhandled exception:")
-    #     return
+        def _handle_archieve_response(self, control_packet: ArchieveDataResponce):
+            try:
+                self._scanner_csv_writer.append_data(control_packet.archieve_data)
+            except Exception:
+                self._logger.exception("Storing to CSV Error:")
 
-    # async def wait_ping_response():
-    #     nonlocal received_ping
-    #     while received_ping is False:
-    #         await asyncio.sleep(0.1)
+        async def _wait_ping_response(self):
+            while self._received_ping is False:
+                await asyncio.sleep(0.1)
 
-    # async def state_contol_logic():
-    #     nonlocal packet_id
-    #     nonlocal received_ping
-    #     nonlocal is_alive
+        async def _state_contol_logic(self):
 
-    #     scanner_logger.info(f"Sending ping packet #{packet_id} to scanner")
-    #     control_packet = StateControlPacket(
-    #         scanner_ID=scanner.scanner_id, packet_ID=packet_id
-    #     )
-    #     control_packet_id = packet_id
+            self._logger.info(f"Sending ping packet #{self._packet_id} to scanner")
+            control_packet = StateControlPacket(
+                scanner_ID=scanner.scanner_id, packet_ID=self._packet_id
+            )
+            self._control_packet_id = self._packet_id
 
-    #     bytes_packet = build_packet(control_packet)
-    #     scanner_socket.send(bytes_packet)
+            bytes_packet = build_packet(control_packet)
+            self._socket.send(bytes_packet)
 
-    #     packet_id += 1
-    #     packet_id %= 256
+            self._packet_id += 1
+            self._packet_id %= 256
 
-    #     try:
-    #         await asyncio.wait_for(wait_ping_response(), timeout=PING_TIMEOUT)
-    #     except asyncio.exceptions.TimeoutError:
-    #         scanner_logger.error("STATE CONTROL PACKET TIMEOUT")
-    #         is_alive = False
-    #     else:
-    #         scanner_logger.info("STATE CONTROL PACKET ACCEPTED")
-    #         received_ping = False
+            try:
+                await asyncio.wait_for(self._wait_ping_response(), timeout=PING_TIMEOUT)
+            except asyncio.exceptions.TimeoutError:
+                self._logger.error("STATE CONTROL PACKET TIMEOUT")
+                self._is_alive = False
+            else:
+                self._logger.info("STATE CONTROL PACKET ACCEPTED")
+                self._received_ping = False
 
-    #     await asyncio.sleep(PING_PERIOD)
+            await asyncio.sleep(PING_PERIOD)
 
-    # def handle_state_control_response(packet: ScannerControlResponse):
-    #     nonlocal is_alive
-    #     nonlocal control_packet_id
+        async def _scanner_message_hanler(self):
 
-    #     if packet.packet_id == control_packet_id:
-    #         is_alive = True
-    #     else:
-    #         scanner_logger.error("Received packet id did not match to send packet id")
-    #         is_alive = False
+            if not self._queue.empty():
+                message = self._queue.get()
+                self._logger.info(f"Got message: {message}")
+                parsed_packet = parse_input_message(message)
 
-    # def handle_settings_set_response(packet: SettingsSetResponse):
+                if isinstance(parsed_packet, ScannerControlResponse):
+                    self._handle_state_control_response(parsed_packet)
+                elif isinstance(parsed_packet, SettingsSetResponse):
+                    self._handle_settings_set_response(parsed_packet)
+                elif isinstance(parsed_packet, ArchieveDataResponce):
+                    self._handle_archieve_response(parsed_packet)
 
-    #     if packet.response_code == 0:
-    #         scanner_logger.info("Settings was succesfully applied!")
-    #     else:
-    #         scanner_logger.error(
-    #             f"An error on scanner settings applying occurs: {packet.response_code}"
-    #         )
+        def run_process(self):
+            self._logger.debug(f"Start of process of {scanner.name}")
 
-    # def handle_archieve_response(control_packet: ArchieveDataResponce):
-    #     try:
-    #         scanner_csv_writer.append_data(control_packet.archieve_data)
-    #     except Exception:
-    #         scanner_logger.exception("Storing to CSV Error:")
+            while self._is_alive:
+                asyncio.run(self._state_contol_logic())
+                asyncio.run(self._scanner_message_hanler())
 
-    # async def scanner_message_hanler():
+                time.sleep(0.1)
 
-    #     if not queue.empty():
-    #         message = queue.get()
-    #         scanner_logger.info(f"Got message: {message}")
-    #         parsed_packet = parse_input_message(message)
+            self._logger.error("State control packet was not received in time.")
+            self._logger.error("Closing socket.")
+            self._socket.close()
 
-    #         if isinstance(parsed_packet, ScannerControlResponse):
-    #             handle_state_control_response(parsed_packet)
-    #         elif isinstance(parsed_packet, SettingsSetResponse):
-    #             handle_settings_set_response(parsed_packet)
-    #         elif isinstance(parsed_packet, ArchieveDataResponce):
-    #             handle_archieve_response(parsed_packet)
+            self._logger.error(f"Closing process.")
 
-    # while is_alive:
-    #     asyncio.run(state_contol_logic())
-    #     asyncio.run(scanner_message_hanler())
+    scanner_handler = ScannerHandler(scanner, queue)
+    
+    if scanner_handler.is_alive:
+        scanner_handler.run_process()
+    else:
+        scanner_handler._logger.error("Failed to initialize scanner handler in process.")
+        scanner_handler._logger.error(f"Closing process.")
 
-    #     time.sleep(0.1)
-
-    # scanner_logger.error("State control packet was not received in time.")
-    # scanner_logger.error("Closing socket.")
-    # scanner_socket.close()
-
-    # scanner_logger.error(f"Closing process.")
+    sys.exit() 

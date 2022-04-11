@@ -14,7 +14,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):  # noqa: WPS110
         while True:
             b_data = self.request.recv(2048)
-            data = b_data.decode("utf8").rstrip()  # decode and strip end of line
+            # data = b_data.decode("cp1251").rstrip()  # decode and strip end of line
 
             cur_thread = threading.current_thread()
             client_ip = self.client_address[0]
@@ -24,7 +24,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 client_thread=cur_thread,
                 client_ip=client_ip,
                 client_port=int(client_port),
-                client_message=str(data),
+                # client_message=str(data),
+                client_message=b_data
             )
 
             self.server.queue.add(_message)

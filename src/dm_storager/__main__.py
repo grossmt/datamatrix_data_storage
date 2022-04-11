@@ -14,7 +14,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     is_verbose = args.v
 
-    main_logger = configure_logger("SCANNER DATAMATRIX STORAGER")
+    main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", is_verbose)
 
     print("")
 
