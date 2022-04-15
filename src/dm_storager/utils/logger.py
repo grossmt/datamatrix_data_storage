@@ -18,17 +18,19 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
     # Setup file handler
     try:
         file_handler = logging.FileHandler(filename="logs/server_log")
+
+        file_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
+            ),
+        )
+        root.addHandler(file_handler)    
     except FileNotFoundError:
         pass
 
-    file_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
-        ),
-    )
+
 
     root.addHandler(console_handler)
-    root.addHandler(file_handler)    
     root.name = "SERVER"
 
     return root
