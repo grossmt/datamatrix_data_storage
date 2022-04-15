@@ -4,7 +4,7 @@ from dm_storager.server import Server
 from dm_storager.enviroment import HOST_IP, HOST_PORT, SCANNER_SETTINGS
 from dm_storager.utils.logger import configure_logger
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser("Datamatrix Storager")
 
@@ -27,3 +27,7 @@ if __name__ == "__main__":
         server.stop_server()
         main_logger.error("Aborting program.")
         exit(0)
+
+if __name__ == "__main__":
+    main()
+
