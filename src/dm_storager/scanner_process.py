@@ -4,7 +4,7 @@ import logging
 import time
 import sys
 
-from multiprocessing import Process, Queue
+from multiprocessing import Queue
 
 from dm_storager.structs import ScannerInfo, ScannerSettings
 
@@ -21,40 +21,50 @@ from dm_storager.schema import (
     ArchieveDataResponce,
 )
 
-PING_PERIOD = 10
-PING_TIMEOUT = 5
-
-PRODUCT_LIST_SIZE = 6
 
 def scanner_process(scanner: ScannerInfo, queue: Queue):
+    class ScannerHandler:
 
-    class ScannerHandler():
+        PING_PERIOD = 10
+        PING_TIMEOUT = 5
+        PRODUCT_LIST_SIZE = 6
+
         def __init__(self, scanner: ScannerInfo, queue: Queue) -> None:
             self._queue: Queue = queue
             self._scanner_csv_writer = CSVWriter(scanner.scanner_id)
-            self._logger = configure_logger(f"Scanner #{scanner.scanner_id}", is_debug=True)
+            self._logger = configure_logger(
+                f"Scanner #{scanner.scanner_id}", is_debug=True
+            )
 
             self._packet_id: int = 0
             self._control_packet_id: int = 0
 
             self._is_alive: bool = True
             self._received_ping: bool = False
-            
-            self._products = ScannerSettings(
-                products=list("" for i in range(PRODUCT_LIST_SIZE)),
-                server_ip=HOST_IP,
-                server_port=HOST_PORT
-            )
+
+            # self._products = ScannerSettings(
+            #     products=list("" for i in range(ScannerHandler.PRODUCT_LIST_SIZE)),
+            #     server_ip=HOST_IP,
+            #     server_port=HOST_PORT,
+            # )
 
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 self._socket.connect((scanner.address, scanner.port))
-            except (OSError, TimeoutError):
-                self._logger.exception(f"Connection error: {scanner.address}:{scanner.port}")
+            except TimeoutError:
+                self._logger.exception(
+                    f"Connection timeout to: {scanner.address}:{scanner.port}"
+                )
+                self._logger.error("Skipping scanner start.")
+                self._is_alive = False
+            except OSError:
+                self._logger.exception(
+                    f"Connection error: {scanner.address}:{scanner.port}"
+                )
                 self._logger.error("Skipping scanner start.")
                 self._is_alive = False
             except Exception:
-                self._socket.exception("Unhandled exception:")
+                self._logger.exception("Unhandled exception:")
                 self._is_alive = False
 
         @property
@@ -141,11 +151,13 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
             self._logger.error(f"Closing process.")
 
     scanner_handler = ScannerHandler(scanner, queue)
-    
+
     if scanner_handler.is_alive:
         scanner_handler.run_process()
     else:
-        scanner_handler._logger.error("Failed to initialize scanner handler in process.")
+        scanner_handler._logger.error(
+            "Failed to initialize scanner handler in process."
+        )
         scanner_handler._logger.error(f"Closing process.")
 
-    sys.exit() 
+    sys.exit()
