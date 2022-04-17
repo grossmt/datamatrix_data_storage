@@ -9,9 +9,7 @@ class ClientMessage:
     client_thread: Thread
     client_ip: str
     client_port: int
-    # client_message: str
     client_message: bytes
-
 
 
 @dataclass
