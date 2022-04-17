@@ -13,7 +13,7 @@ from dm_storager.utils.scanner_network_settings_resolver import (
 )
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
-from dm_storager.structs import ClientMessage, Scanner, ScannerInfo
+from dm_storager.structs import ClientMessage, Scanner, ScannerInfo, ScannerSettings
 
 
 class Server:
@@ -25,7 +25,7 @@ class Server:
 
         self._settings_path = registred_clients_settings
 
-        self._logger = configure_logger(__name__)
+        self._logger = configure_logger("ROOT_SERVER")
 
     @property
     def connection_info(self) -> Tuple[str, int]:
@@ -34,7 +34,6 @@ class Server:
         Returns:
             (str, int): IP-address and port of server.
         """
-
         return self._queue.server.server_address
 
     def init_server(self) -> None:
@@ -48,8 +47,8 @@ class Server:
         self._queue.start_server()
         ip, port = self.connection_info
         self._logger.info("Server initialized:")
-        self._logger.info(f"Server IP:   {ip}")
-        self._logger.info(f"Server Port: {port}")
+        self._logger.info(f"\tServer IP:   {ip}")
+        self._logger.info(f"\tServer Port: {port}")
 
         self._register_scanners_from_settings()
 
@@ -101,12 +100,31 @@ class Server:
             return False
 
     def is_scanner_alive(self, scanner_id: int) -> bool:
+        """Check is scanner alive.
+        
+        Args:
+            scanner_id (int): id of scanner.
+
+        Returns:
+            bool: is scanner alive.
+        """
         for scanner in self._scanners:
             if scanner.info.scanner_id == scanner_id and scanner.process.is_alive():
                 return True
         return False
 
-    def set_scanner_settings(self, scanner_id, settings) -> bool:
+    def set_scanner_settings(self, scanner_id, settings: ScannerSettings) -> bool:
+        for scanner in self._scanners:
+            if scanner.info.scanner_id == scanner_id:
+                if scanner.process.is_alive():
+                    self._logger.info(f"Applying new settings to scanner id #{scanner_id}...")
+                else:
+                    self._logger.warning(f"Scanner with id #{scanner_id} is not alive!")
+                    self._logger.warning(f"Settings will be apllied after scanner resurrection!")
+                scanner.queue.put(settings)
+                return True
+        
+        self._logger.error("No scanner with given ID found!")
         return False
 
     def _handle_client_message(self, client_message: ClientMessage):

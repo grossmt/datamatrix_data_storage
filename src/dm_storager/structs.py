@@ -31,8 +31,8 @@ class Scanner:
 
 @dataclass
 class ScannerSettings:
-    products: List[str]
-    server_ip: str
-    server_port: int
-    gateway_ip: str
-    netmask: str
+    products: List[Optional[str]]
+    server_ip: Optional[str]
+    server_port: Optional[int]
+    gateway_ip: Optional[str]
+    netmask: Optional[str]

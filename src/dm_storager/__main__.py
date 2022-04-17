@@ -11,11 +11,11 @@ def main():
     parser.add_argument("-v", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.set_defaults(v=False)
+    
     args = parser.parse_args()
     is_verbose = args.v
 
     main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", is_verbose)
-
     print("")
 
     server = Server(HOST_IP, HOST_PORT, SCANNER_SETTINGS)

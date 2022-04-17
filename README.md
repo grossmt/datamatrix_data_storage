@@ -15,10 +15,8 @@ API Сервера:
 
 - init_server:
 - run_server:
-- register_new_scanner:
 - stop_server:
-
 - connection_info:
+- register_new_scanner:
 - is_alive(scanner_id):
 - set_scanner_settings(scanner_settings)
-- save_csv_file:

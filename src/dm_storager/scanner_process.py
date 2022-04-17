@@ -7,13 +7,11 @@ import sys
 from multiprocessing import Queue
 
 from dm_storager.structs import ScannerInfo, ScannerSettings
-
 from dm_storager.CSVWriter import CSVWriter
 from dm_storager.enviroment import HOST_IP, HOST_PORT
 from dm_storager.utils.logger import configure_logger
-from dm_storager.utils.packet_builer import build_packet
-from dm_storager.utils.packet_parser import parse_input_message
-
+from dm_storager.protocol.packet_builer import build_packet
+from dm_storager.protocol.packet_parser import parse_input_message
 from dm_storager.schema import (
     StateControlPacket,
     ScannerControlResponse,
@@ -42,11 +40,13 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
             self._is_alive: bool = True
             self._received_ping: bool = False
 
-            # self._products = ScannerSettings(
-            #     products=list("" for i in range(ScannerHandler.PRODUCT_LIST_SIZE)),
-            #     server_ip=HOST_IP,
-            #     server_port=HOST_PORT,
-            # )
+            self._scanner_settings = ScannerSettings(
+                products=list("" for i in range(ScannerHandler.PRODUCT_LIST_SIZE)),
+                server_ip=HOST_IP,
+                server_port=HOST_PORT,
+                gateway_ip="",
+                netmask=""
+            )
 
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
@@ -92,6 +92,19 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
             except Exception:
                 self._logger.exception("Storing to CSV Error:")
 
+        def _apply_new_scanner_settings(self, new_settings: ScannerSettings) -> None:
+            
+            for i in range(ScannerHandler.PRODUCT_LIST_SIZE):
+                self._scanner_settings.products[i] = new_settings.products[i] or self._scanner_settings.products[i]
+            
+            self._scanner_settings.server_ip = new_settings.server_ip or self._scanner_settings.server_ip
+            self._scanner_settings.server_port = new_settings.server_port or self._scanner_settings.server_port
+            self._scanner_settings.gateway_ip = new_settings.gateway_ip or self._scanner_settings.gateway_ip
+            self._scanner_settings.netmask = self._scanner_settings.netmask if new_settings.netmask == "" else new_settings.netmask
+
+            self._logger.info(f"Applied new settings to scanner #")
+
+
         async def _wait_ping_response(self):
             while self._received_ping is False:
                 await asyncio.sleep(0.1)
@@ -111,7 +124,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
             self._packet_id %= 256
 
             try:
-                await asyncio.wait_for(self._wait_ping_response(), timeout=PING_TIMEOUT)
+                await asyncio.wait_for(self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT)
             except asyncio.exceptions.TimeoutError:
                 self._logger.error("STATE CONTROL PACKET TIMEOUT")
                 self._is_alive = False
@@ -119,12 +132,16 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
                 self._logger.info("STATE CONTROL PACKET ACCEPTED")
                 self._received_ping = False
 
-            await asyncio.sleep(PING_PERIOD)
+            await asyncio.sleep(ScannerHandler.PING_PERIOD)
 
         async def _scanner_message_hanler(self):
 
             if not self._queue.empty():
                 message = self._queue.get()
+
+                if isinstance(message, ScannerSettings):
+
+
                 self._logger.info(f"Got message: {message}")
                 parsed_packet = parse_input_message(message)
 
