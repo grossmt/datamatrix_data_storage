@@ -104,7 +104,6 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
 
             self._logger.info(f"Applied new settings to scanner #")
 
-
         async def _wait_ping_response(self):
             while self._received_ping is False:
                 await asyncio.sleep(0.1)
@@ -140,17 +139,17 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
                 message = self._queue.get()
 
                 if isinstance(message, ScannerSettings):
+                    pass
+                elif isinstance(message, bytes):
+                    self._logger.debug(f"Got message: {message}")
+                    parsed_packet = parse_input_message(message)
 
-
-                self._logger.info(f"Got message: {message}")
-                parsed_packet = parse_input_message(message)
-
-                if isinstance(parsed_packet, ScannerControlResponse):
-                    self._handle_state_control_response(parsed_packet)
-                elif isinstance(parsed_packet, SettingsSetResponse):
-                    self._handle_settings_set_response(parsed_packet)
-                elif isinstance(parsed_packet, ArchieveDataResponce):
-                    self._handle_archieve_response(parsed_packet)
+                    if isinstance(parsed_packet, ScannerControlResponse):
+                        self._handle_state_control_response(parsed_packet)
+                    elif isinstance(parsed_packet, SettingsSetResponse):
+                        self._handle_settings_set_response(parsed_packet)
+                    elif isinstance(parsed_packet, ArchieveDataResponce):
+                        self._handle_archieve_response(parsed_packet)
 
         def run_process(self):
             self._logger.debug(f"Start of process of {scanner.name}")
