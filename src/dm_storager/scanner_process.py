@@ -1,6 +1,5 @@
 import socket
 import asyncio
-import logging
 import time
 import sys
 
@@ -34,8 +33,9 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
                 f"Scanner #{scanner.scanner_id}", is_debug=True
             )
 
-            self._packet_id: int = 0
             self._control_packet_id: int = 0
+            self._settings_packet_id: int = 0
+            self._archieve_data_packet_id: int = 0
 
             self._is_alive: bool = True
             self._received_ping: bool = False
@@ -65,6 +65,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
                 self._is_alive = False
             except Exception:
                 self._logger.exception("Unhandled exception:")
+                self._logger.error("Skipping scanner start.")
                 self._is_alive = False
 
         @property

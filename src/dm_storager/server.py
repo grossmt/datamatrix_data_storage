@@ -7,6 +7,8 @@ from pathlib import Path
 from dm_storager.exceptions import ScannedIdNotRegistered
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
+from dm_storager.protocol.utils import format_bytestring
+
 
 from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.scanner_network_settings_resolver import (
@@ -136,7 +138,7 @@ class Server:
         self._logger.debug("Got message!")
         self._logger.debug(f"\tClient IP:            {client_message.client_ip}")
         self._logger.debug(f"\tClient port:          {client_message.client_port}")
-        self._logger.debug(f"\tClient raw message:   {client_message.client_message}")
+        # self._logger.debug(f"\tClient raw message:   {client_message.client_message}")
 
         is_registered = self._is_client_registered(client_message.client_ip)
 
@@ -151,16 +153,25 @@ class Server:
         except ProtocolMessageError as err:
             self._logger.error(str(err))
             return
+        except Exception:
+            self._logger.exception("Unhandled error:")
+            self._logger.error(f"Raw message: {format_bytestring(client_message.client_message)}")
+            return
 
         is_scanner_id_registered: bool = scanner_id_int in list(
             x.scanner_id for x in self._registred_clients
         )
         if not is_scanner_id_registered:
+            correct_id = 0
+            for scanner in self._scanners:
+                if client_message.client_ip == scanner.info.address:
+                    correct_id = scanner.info.scanner_id
+                    break
             self._logger.error(
-                f"Scanner with id {scanner_id_int} on address {client_message.client_ip} is registered, but not found."
+                f"Client with address {client_message.client_ip} is registred, but has another ID: {correct_id}"
             )
-            self._logger.error("Perhaps bad settings, check it please.")
-            self._logger.error(f"Skipped message: {client_message.client_message}")
+            self._logger.error(f"Perhaps bad settings on {self._settings_path}, check it please.")
+            self._logger.error(f"Skipped raw message: {format_bytestring(client_message.client_message)}")
             return
 
         for scanner in self._scanners:
