@@ -1,11 +1,8 @@
 from typing import Union, Tuple
 
-from dm_storager.exceptions import (
+from dm_storager.protocol.exceptions import (
+    InvalidField,
     TooShortMessage,
-    InvalidPreambula,
-    InvalidScannerID,
-    InvalidPacketCode,
-    InvalidPacketID,
 )
 from dm_storager.protocol.const import (
     # general
@@ -42,26 +39,28 @@ def is_valid_header(msg_header: bytes) -> bool:
             preambula = _slice.decode(ENCODING)
             assert preambula == PREAMBULA
         except Exception:
-            raise InvalidPreambula(_slice)
+            raise InvalidField(field="Preambula", slice=_slice)
+
 
     def validate_scanner_id(_slice: bytes):
         try:
             scanner_id_int = int.from_bytes(_slice, byteorder="big")  # noqa: F841
         except Exception:
-            raise InvalidScannerID(_slice)
+            raise InvalidField(field="Scanner ID", slice=_slice)
 
     def validate_packet_id(_slice: bytes):
         try:
             packet_id_int = int.from_bytes(_slice, byteorder="big")  # noqa: F841
         except Exception:
-            raise InvalidPacketID(_slice)
+            raise InvalidField(field="Packet ID", slice=_slice)
 
     def validate_packet_code(_slice: bytes):
         try:
             packet_code_int = int.from_bytes(_slice, byteorder="big")
             assert packet_code_int in PacketCode
         except Exception:
-            raise InvalidPacketCode(_slice)
+            raise InvalidField(field="Packet Code", slice=_slice)
+
 
     validate_preambula(msg_header[PREAMBULA_POS:SCANNER_ID_POS])
     validate_scanner_id(msg_header[SCANNER_ID_POS:PACKET_ID_POS])
@@ -71,29 +70,33 @@ def is_valid_header(msg_header: bytes) -> bool:
     return True
 
 
-def is_valid_body(packet_code: int, msg_body: bytes) -> bool:
-    return True
-
-
-def is_valid_state_control_message(msg_body: bytes) -> bool:
-    pass
-    return True
-
-
 def parse_state_control_response_packet(msg: bytes) -> ScannerControlResponse:
 
-    b_preambula: bytes = msg[0:PREAMBULA_LEN]
+    try:
+        reserved = int.from_bytes(msg[HEADER_LEN:], byteorder="big")
+        assert reserved == 0
+    except Exception:
+        raise InvalidField("Reserved", msg[HEADER_LEN:])
+
+    b_preambula: bytes = msg[PREAMBULA_POS:PREAMBULA_LEN]
     preambula = b_preambula.decode(ENCODING)
-    if preambula != PREAMBULA:
-        raise
+    
+    b_scanner_id: bytes = msg[SCANNER_ID_POS:SCANNER_ID_POS+SCANNER_ID_LEN]
+    scanner_id = int.from_bytes(b_scanner_id, byteorder="big")
 
-    b_scanner_id: bytes = msg[PREAMBULA_LEN : PREAMBULA_LEN + SCANNER_ID_LEN]
+    b_packet_id: bytes = msg[PACKET_ID_POS:PACKET_ID_POS+PACKET_ID_LEN] 
+    packet_id = int.from_bytes(b_packet_id, byteorder="big")
 
-    packet = ScannerControlResponse(
+    b_packet_code: bytes = msg[PACKET_CODE_POS:PACKET_CODE_POS+PACKET_CODE_LEN] 
+    packet_code = int.from_bytes(b_packet_code, byteorder="big")
+
+    return ScannerControlResponse(
         preambula,
+        scanner_id,
+        packet_id,
+        packet_code,
+        reserved
     )
-
-    pass
 
 
 def parse_settings_set_response_packet(msg: bytes) -> ScannerControlResponse:
@@ -102,14 +105,6 @@ def parse_settings_set_response_packet(msg: bytes) -> ScannerControlResponse:
 
 def parse_archieve_data(msg: bytes):
     pass
-
-
-def is_valid_msg(msg: bytes) -> bool:
-
-    if is_valid_header(msg[0:HEADER_LEN]):
-        packet_code = get_packet_code(msg)
-        return is_valid_body(packet_code, msg[HEADER_LEN:])
-    return False
 
 
 def get_packet_code(msg: bytes) -> int:
@@ -146,7 +141,7 @@ def parse_input_message(
     packet = None
 
     packet_code = get_packet_code(msg)
-
+    
     if packet_code == PacketCode.STATE_CONTROL_CODE:
         packet = parse_state_control_response_packet(msg)
     elif packet_code == PacketCode.SETTINGS_SET_CODE:
