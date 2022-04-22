@@ -11,11 +11,11 @@ from dm_storager.enviroment import HOST_IP, HOST_PORT
 from dm_storager.utils.logger import configure_logger
 from dm_storager.protocol.packet_builer import build_packet
 from dm_storager.protocol.packet_parser import parse_input_message
-from dm_storager.schema import (
-    StateControlPacket,
+from dm_storager.protocol.schema import (
+    StateControlRequest,
     ScannerControlResponse,
     SettingsSetResponse,
-    ArchieveDataResponce,
+    ArchieveDataResponse
 )
 
 
@@ -87,7 +87,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
                     f"An error on scanner settings applying occurs: {packet.response_code}"
                 )
 
-        def _handle_archieve_response(self, control_packet: ArchieveDataResponce):
+        def _handle_archieve_response(self, control_packet: ArchieveDataResponse):
             try:
                 self._scanner_csv_writer.append_data(control_packet.archieve_data)
             except Exception:
@@ -112,7 +112,7 @@ def scanner_process(scanner: ScannerInfo, queue: Queue):
         async def _state_contol_logic(self):
 
             self._logger.info(f"Sending ping packet #{self._packet_id} to scanner")
-            control_packet = StateControlPacket(
+            control_packet = StateControlRequest(
                 scanner_ID=scanner.scanner_id, packet_ID=self._packet_id
             )
             self._control_packet_id = self._packet_id
