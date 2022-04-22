@@ -4,19 +4,22 @@ import multiprocessing
 from multiprocessing import Process, Queue
 from typing import Tuple, List, Optional
 from pathlib import Path
-from dm_storager.exceptions import ScannedIdNotRegistered
+
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
 from dm_storager.protocol.utils import format_bytestring
-
-
 from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.scanner_network_settings_resolver import (
     resolve_scanners_settings,
 )
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
-from dm_storager.structs import ClientMessage, Scanner, ScannerInfo, ScannerSettings
+from dm_storager.structs import (
+    ClientMessage, 
+    Scanner, 
+    ScannerInfo, 
+    ScannerSettings
+)
 
 
 class Server:
