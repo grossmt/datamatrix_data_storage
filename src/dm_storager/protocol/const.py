@@ -1,6 +1,7 @@
 from enum import IntEnum
 
 ENCODING = "cp1251"
+BYTEORDER = "big"
 
 PREAMBULA = "RFLABC"
 
