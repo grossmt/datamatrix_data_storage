@@ -12,12 +12,12 @@ class HeaderPacket:
 
 
 @dataclass
-class StateControlPacket(HeaderPacket):
+class StateControlRequest(HeaderPacket):
     reserved: int
 
 
 @dataclass
-class ScannerControlResponse(StateControlPacket):
+class ScannerControlResponse(StateControlRequest):
     pass
 
 
