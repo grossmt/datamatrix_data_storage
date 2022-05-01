@@ -28,7 +28,7 @@ class ScannerSettings:
     server_port: int
     gateway_ip: str
     netmask: str
-    reserved: str
+    reserved: int
 
 
 @dataclass

@@ -1,7 +1,15 @@
 from dataclasses import dataclass
+from socket import socket
 from threading import Thread
 from multiprocessing import Process, Queue
 from typing import Optional, List
+
+
+@dataclass
+class HandshakeMessage:
+    client_socket: socket
+    client_ip: str
+    client_port: int
 
 
 @dataclass
@@ -23,9 +31,9 @@ class ScannerInfo:
 @dataclass
 class Scanner:
     info: ScannerInfo
-    process: Process
+    process: Optional[Process]
     queue: Queue
-
+    client_socket: Optional[socket]
 
 @dataclass
 class ScannerSettings:

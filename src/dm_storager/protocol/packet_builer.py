@@ -13,7 +13,8 @@ from dm_storager.protocol.const import (
     PRODUCT_NAME_LEN,
     SETTINGS_RESERVED_LEN,
     SETTINGS_REQUEST_PACKET_LEN,
-    ARCHIEVE_STATUS_LEN
+    ARCHIEVE_STATUS_LEN,
+    ARCHIEVE_RESPONSE_LEN
 )
 from dm_storager.protocol.schema import (
     StateControlRequest,
@@ -49,7 +50,7 @@ def build_packet(packet: Union[StateControlRequest, SettingsSetRequest, Archieve
         b_products = b''.join(
             list(
                 map(
-                    lambda x: bytes(x + ''.join('\x00' for i in range(PRODUCT_NAME_LEN-len(x))), encoding=ENCODING),
+                    lambda x: bytes(x + ''.join('\x00' for i in range(PRODUCT_NAME_LEN - len(x))), encoding=ENCODING),
                     list(packet.settings.products)
                 )
             )
@@ -75,6 +76,6 @@ def build_packet(packet: Union[StateControlRequest, SettingsSetRequest, Archieve
     elif isinstance(packet, ArchieveDataResponse):
         b_response_code= packet.response_code.to_bytes(ARCHIEVE_STATUS_LEN, byteorder=BYTEORDER)
         bytes_pack.extend(b_response_code)
-        assert len(bytes_pack) == STATE_CONTROL_PACKEN_LEN
+        assert len(bytes_pack) == ARCHIEVE_RESPONSE_LEN
 
     return bytes_pack

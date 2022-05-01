@@ -1,9 +1,11 @@
 import time
+import threading
 import multiprocessing
 
 from multiprocessing import Process, Queue
 from typing import Tuple, List, Optional
 from pathlib import Path
+from dm_storager.exceptions import ServerStop
 
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
@@ -14,21 +16,17 @@ from dm_storager.utils.scanner_network_settings_resolver import (
 )
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
-from dm_storager.structs import (
-    ClientMessage, 
-    Scanner, 
-    ScannerInfo, 
-    ScannerSettings
-)
+from dm_storager.structs import ClientMessage, HandshakeMessage, Scanner, ScannerInfo, ScannerSettings
 
 
 class Server:
     def __init__(self, ip: str, port: int, registred_clients_settings: Path) -> None:
-        self._queue = ServerQueue(ip, port)
+        self._logger = configure_logger("ROOT_SERVER")
+
+        self._queue = ServerQueue(ip, port, self._logger)
         self._registred_clients: List[ScannerInfo] = []
         self._scanners: List[Scanner] = []
         self._settings_path = registred_clients_settings
-        self._logger = configure_logger("ROOT_SERVER")
 
     @property
     def connection_info(self) -> Optional[Tuple[str, int]]:
@@ -59,22 +57,35 @@ class Server:
         self._register_scanners_from_settings()
 
     def stop_server(self) -> None:
-        self._logger.warning("Stopping server!")
 
         for scanner in self._scanners:
-            self._logger.warning(
-                f"Scanner #{scanner.info.scanner_id}: killing process.",
-            )
-            scanner.process.kill()
 
-        self._queue.stop_server()
+            if scanner.process and scanner.process.pid:
+                self._logger.warning(
+                    f"Scanner #{scanner.info.scanner_id}: killing process.",
+                )
+                scanner.process.kill()
+
+        self._queue.server._is_running = False
+        self._queue.server.shutdown()
+        self._queue.server.server_close()
 
     def run_server(self) -> None:
-        while True:
-            time.sleep(0.1)
+        try:
+            while True:
+                time.sleep(0.1)
+                while self._queue.exists():
 
-            while self._queue.exists():
-                self._handle_client_message(self._queue.get())
+                    message = self._queue.get()
+
+                    if isinstance(message, ClientMessage):
+                        self._handle_client_message(message)
+                    elif isinstance(message, HandshakeMessage):
+                        self._handle_handshake_message(message)
+
+        except KeyboardInterrupt:
+            self.stop_server()
+            raise ServerStop
 
     def register_single_scanner(self, scanner_info: ScannerInfo) -> bool:
         """Performs registraion of a given scanner."""
@@ -94,8 +105,10 @@ class Server:
 
             new_scanner = Scanner(
                 info=scanner_info,
-                process=Process(target=scanner_process, args=(scanner_info, _q)),
+                # process=Process(target=scanner_process, args=(scanner_info, _q)),
+                process=None,
                 queue=_q,
+                client_socket=None
             )
             self._scanners.append(new_scanner)
             return True
@@ -137,19 +150,46 @@ class Server:
         self._logger.error("No scanner with given ID found!")
         return False
 
+    def _handle_handshake_message(self, handshake_message: HandshakeMessage):
+
+        self._logger.debug("Got new connection!")
+        self._logger.debug(f"\tClient IP:            {handshake_message.client_ip}")
+        self._logger.debug(f"\tClient port:          {handshake_message.client_port}")
+
+        if not self._is_client_registered(handshake_message.client_ip):
+            self._logger.warning(
+                f"Unregistred client connection from {handshake_message.client_ip}!"
+            )
+            handshake_message.client_socket.close()
+            return
+
+        for scanner in self._scanners:
+            if scanner.info.address == handshake_message.client_ip:
+                scanner.client_socket = handshake_message.client_socket
+                scanner.process = Process(
+                    target=scanner_process, 
+                    args=(scanner,)
+                )
+
+                try:
+                    scanner.process.start()
+                except AssertionError:
+                    self._logger.warning(
+                        f"Process for scanner {scanner.info.name}: ID#{scanner.info.scanner_id} was already started and killed due to error."
+                    )
+                    self._logger.warning("Restarting process...")
+                    scanner.process = Process(
+                        target=scanner_process,
+                        args=(scanner,),
+                    )
+                    scanner.process.start()
+
+                break
+            
     def _handle_client_message(self, client_message: ClientMessage):
-        self._logger.debug("Got message!")
+        self._logger.debug("Got new message!")
         self._logger.debug(f"\tClient IP:            {client_message.client_ip}")
         self._logger.debug(f"\tClient port:          {client_message.client_port}")
-        # self._logger.debug(f"\tClient raw message:   {client_message.client_message}")
-
-        is_registered = self._is_client_registered(client_message.client_ip)
-
-        if not is_registered:
-            self._logger.warning(
-                f"Unregistred scanner connection from {client_message.client_ip}!"
-            )
-            return
 
         try:
             scanner_id_int = get_scanner_id(client_message.client_message)
@@ -158,13 +198,12 @@ class Server:
             return
         except Exception:
             self._logger.exception("Unhandled error:")
-            self._logger.error(f"Raw message: {format_bytestring(client_message.client_message)}")
+            self._logger.error(
+                f"Raw message: {format_bytestring(client_message.client_message)}"
+            )
             return
 
-        is_scanner_id_registered: bool = scanner_id_int in list(
-            x.scanner_id for x in self._registred_clients
-        )
-        if not is_scanner_id_registered:
+        if not self._is_scanner_id_registered(scanner_id_int):
             correct_id = 0
             for scanner in self._scanners:
                 if client_message.client_ip == scanner.info.address:
@@ -173,16 +212,20 @@ class Server:
             self._logger.error(
                 f"Client with address {client_message.client_ip} is registred, but has another ID: {correct_id}"
             )
-            self._logger.error(f"Perhaps bad settings on {self._settings_path}, check it please.")
-            self._logger.error(f"Skipped raw message: {format_bytestring(client_message.client_message)}")
+            self._logger.error(
+                f"Perhaps bad settings on {self._settings_path}, check it please."
+            )
+            self._logger.error(
+                f"Skipped raw message: {format_bytestring(client_message.client_message)}"
+            )
             return
 
         for scanner in self._scanners:
             if scanner_id_int == scanner.info.scanner_id:
-                if scanner.process.is_alive():
+
+                if scanner.process and scanner.process.is_alive():
                     scanner.queue.put(client_message.client_message)
                 else:
-                    scanner.info.port = client_message.client_port
                     try:
                         scanner.process.start()
                     except AssertionError:
@@ -192,7 +235,7 @@ class Server:
                         self._logger.warning("Restarting process...")
                         scanner.process = Process(
                             target=scanner_process,
-                            args=(scanner.info, scanner.queue),
+                            args=(scanner,),
                         )
                         scanner.process.start()
                 break  # found given scanner, no need to iterate next
@@ -202,6 +245,11 @@ class Server:
             if client.address == client_address:
                 return True
         return False
+
+    def _is_scanner_id_registered(self, scanner_id: int) -> bool:
+        return scanner_id in list(
+            x.scanner_id for x in self._registred_clients
+        )
 
     def _register_scanners_from_settings(self) -> None:
         clients = resolve_scanners_settings(self._settings_path)

@@ -15,3 +15,10 @@ class ConfigNotExists(Error):
 class ScannedIdNotRegistered(Error):
     def __init__(self, scanner_id: int) -> None:
         super().__init__(f"Scanner ID#{scanner_id} is not in registered scanner list!")
+
+
+class ServerStop(Error):
+    def __init__(self) -> None:
+        super().__init__(
+            "Server stopped outside."
+        )

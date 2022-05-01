@@ -23,7 +23,7 @@ def format_bytestring(msg: bytes) -> str:
     iteration = 0
     for i in SEPATATORS_POS:
         try:
-            s_msg = insert_dash(s_msg, i + iteration )
+            s_msg = insert_dash(s_msg, i + iteration)
             iteration += 1
         except AssertionError:
             return s_msg

@@ -19,3 +19,8 @@ logs/*
 
 #output
 saved_data/*
+
+#build 
+build/
+built_msi/
+built_DM_Data_Storager/

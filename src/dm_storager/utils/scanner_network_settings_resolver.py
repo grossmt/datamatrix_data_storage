@@ -1,10 +1,14 @@
 import logging
 import json
+import toml
 
+from pydantic import BaseModel
 from typing import Optional, List, Union, List, NamedTuple
 from pathlib import Path
+from dm_storager.exceptions import ConfigNotExists
 
 from dm_storager.structs import (
+    Scanner,
     ScannerInfo,
 )
 from dm_storager.utils.logger import configure_logger
@@ -42,3 +46,27 @@ def resolve_scanners_settings(
         scanners.append(new_scanner)
 
     return scanners
+
+
+def _resolve_scanner_settings(
+    settings_path: Path
+) -> List[Scanner]:
+    pass
+
+    logger = configure_logger(__name__)
+
+    if not settings_path.exists():
+        logger.error(f"{str(settings_path)} file not found!")
+        return []
+
+    config_dict = toml.load(settings_path)
+
+    return []
+    # return Config(**config_dict)
+
+
+path = Path("settings") / "connection_settings.toml"
+
+l = _resolve_scanner_settings(path)
+
+pass
