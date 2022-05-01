@@ -34,6 +34,8 @@ setup(
     python_requires=">=3.8",
     extras_require={
         "dev": [
+            "cx-freeze==6.10",
+            "pydantic",
             # Linting
             "wemake-python-styleguide",
             "mypy",
