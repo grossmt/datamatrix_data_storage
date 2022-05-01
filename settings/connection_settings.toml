@@ -1,28 +1,24 @@
 title = "Список разрешенных клиентов"
 
 [clients]
-    [clients.scanner_1]
-        # [clients.scanner_1.connection_info]
-        name = "Scanner #1"
-        address = "192.168.1.10"
-        id = 1
+[clients.scanner_1]
+name = "Scanner #1"
+address = "192.168.1.20"
+id = 1
 
-        # [clients.scanner_1.settings]
-        products = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-        ]
-        server_ip = ""
-        server_port = 0
-        gateway_ip = ""
-        netmask = ""
+products = ["Ессентуки №1", "Мятный.карась", "", "", "", ""]
+server_ip = ""
+server_port = 50000
+gateway_ip = "192.168.1.1"
+netmask = ""
 
 
-    [clients.scanner_2]
-        name = "Scanner #1"
-        address = "192.168.1.20"
-        id = 2    
+[clients.scanner_2]
+name = "Scanner #2"
+address = "192.168.1.10"
+id = 2
+products = ["", "", "", "", "", ""]
+server_ip = ""
+server_port = 0
+gateway_ip = ""
+netmask = ""
