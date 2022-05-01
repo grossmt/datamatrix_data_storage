@@ -1,4 +1,6 @@
 import argparse
+import multiprocessing
+from dm_storager.exceptions import ServerStop
 
 from dm_storager.server import Server
 from dm_storager.enviroment import HOST_IP, HOST_PORT, SCANNER_SETTINGS
@@ -22,6 +24,10 @@ def main():
     server.init_server()
     try:
         server.run_server()
+    except ServerStop:
+        main_logger.error("Stop server outside.")
+        main_logger.error("Aborting program.")
+        exit(0)
     except Exception:
         main_logger.exception("Server runtime error:")
         server.stop_server()
@@ -29,5 +35,5 @@ def main():
         exit(0)
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()
-
