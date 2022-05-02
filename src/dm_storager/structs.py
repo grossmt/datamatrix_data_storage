@@ -29,16 +29,18 @@ class ScannerInfo:
 
 
 @dataclass
-class Scanner:
-    info: ScannerInfo
-    process: Optional[Process]
-    queue: Queue
-    client_socket: Optional[socket]
-
-@dataclass
 class ScannerSettings:
     products: List[Optional[str]]
     server_ip: Optional[str]
     server_port: Optional[int]
     gateway_ip: Optional[str]
     netmask: Optional[str]
+
+
+@dataclass
+class Scanner:
+    info: ScannerInfo
+    settings: ScannerSettings
+    process: Optional[Process]
+    queue: Optional[Queue]
+    client_socket: Optional[socket]
