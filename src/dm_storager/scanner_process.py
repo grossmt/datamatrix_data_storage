@@ -5,7 +5,12 @@ import sys
 
 from multiprocessing import Queue
 
-from dm_storager.protocol.const import PACKET_ID_LEN, PREAMBULA, PacketCode, ResponseCode
+from dm_storager.protocol.const import (
+    PACKET_ID_LEN,
+    PREAMBULA,
+    PacketCode,
+    ResponseCode,
+)
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.utils import format_bytestring
 
@@ -21,13 +26,12 @@ from dm_storager.protocol.schema import (
     StateControlRequest,
     ScannerControlResponse,
     SettingsSetResponse,
-    ArchieveDataResponse
+    ArchieveDataResponse,
 )
 
 
 # def scanner_process(scanner: ScannerInfo, queue: Queue):
 def scanner_process(scanner: Scanner):
-
     class ScannerHandler:
 
         PING_PERIOD = 10
@@ -55,7 +59,7 @@ def scanner_process(scanner: Scanner):
                 server_ip=HOST_IP,
                 server_port=HOST_PORT,
                 gateway_ip="",
-                netmask=""
+                netmask="",
             )
 
             self._socket = scanner.client_socket
@@ -97,7 +101,7 @@ def scanner_process(scanner: Scanner):
 
             if parsed_packet.packet_ID == self._control_packet_id:  # type: ignore
                 self._control_packet_id += 1
-                self._control_packet_id %= 2**(PACKET_ID_LEN*2)
+                self._control_packet_id %= 2 ** (PACKET_ID_LEN * 2)
                 self._is_alive = True
             else:
                 self._logger.error("Received packet id did not match to send packet id")
@@ -105,7 +109,7 @@ def scanner_process(scanner: Scanner):
         def _handle_settings_set_response(self, message: bytes):
 
             self._received_ping = True
-            
+
             try:
                 parsed_packet = parse_input_message(message)
             except ProtocolMessageError as ex:
@@ -115,26 +119,38 @@ def scanner_process(scanner: Scanner):
                 self._logger.exception(ex)
                 return
 
-            if parsed_packet.packet_ID != self._settings_packet_id:  #type: ignore
-                self._logger.error(f"Response packet id does not match to sent packet id!")
+            if parsed_packet.packet_ID != self._settings_packet_id:  # type: ignore
+                self._logger.error(
+                    f"Response packet id does not match to sent packet id!"
+                )
                 self._logger.error(f"\tSent packet id: {self._settings_packet_id}")
                 self._logger.error(f"\tReceived packet id: {parsed_packet.packet_ID}")  # type: ignore
                 return
-            
+
             self._settings_packet_id += 1
-            self._settings_packet_id %= 2**(PACKET_ID_LEN*2)
+            self._settings_packet_id %= 2 ** (PACKET_ID_LEN * 2)
 
             if parsed_packet.response_code == ResponseCode.SUCCSESS:  # type: ignore
                 self._logger.info("Settings were succesfully applied!")
 
                 self._logger.debug("New scanner settings:")
                 for i in range(ScannerHandler.PRODUCT_LIST_SIZE):
-                    self._logger.debug(f"\tProduct #{i}: {self._scanner_settings.products[i]}")
+                    self._logger.debug(
+                        f"\tProduct #{i}: {self._scanner_settings.products[i]}"
+                    )
 
-                self._logger.debug(f"\tServer IP:    {self._scanner_settings.server_ip}")
-                self._logger.debug(f"\tServer Port:  {self._scanner_settings.server_port}")
-                self._logger.debug(f"\tGateway IP:   {self._scanner_settings.server_ip}")
-                self._logger.debug(f"\tNetmask:      {self._scanner_settings.server_ip}")
+                self._logger.debug(
+                    f"\tServer IP:    {self._scanner_settings.server_ip}"
+                )
+                self._logger.debug(
+                    f"\tServer Port:  {self._scanner_settings.server_port}"
+                )
+                self._logger.debug(
+                    f"\tGateway IP:   {self._scanner_settings.server_ip}"
+                )
+                self._logger.debug(
+                    f"\tNetmask:      {self._scanner_settings.server_ip}"
+                )
             else:
                 self._logger.error(
                     f"An error on scanner settings applying occurs: {parsed_packet.response_code}"  # type: ignore
@@ -144,13 +160,12 @@ def scanner_process(scanner: Scanner):
 
             self._received_ping = True
 
-
             response_packet = ArchieveDataResponse(
                 PREAMBULA,
                 self._info.scanner_id,
                 self._archieve_data_packet_id,
                 packet_code=PacketCode.ARCHIEVE_DATA_CODE,
-                response_code=ResponseCode.ERROR
+                response_code=ResponseCode.ERROR,
             )
 
             try:
@@ -165,7 +180,7 @@ def scanner_process(scanner: Scanner):
                 return
             finally:
                 self._archieve_data_packet_id += 1
-                self._archieve_data_packet_id %= 2**(PACKET_ID_LEN*2)
+                self._archieve_data_packet_id %= 2 ** (PACKET_ID_LEN * 2)
 
             try:
                 self._scanner_csv_writer.append_data(parsed_packet.archieve_data, self._scanner_settings)  # type: ignore
@@ -178,16 +193,26 @@ def scanner_process(scanner: Scanner):
             response_packet.response_code = ResponseCode.SUCCSESS
             b_response_packet = build_packet(response_packet)
             self._socket.send(b_response_packet)
-            
+
         def _apply_new_scanner_settings(self, new_settings: ScannerSettings) -> None:
-            
+
             for i in range(ScannerHandler.PRODUCT_LIST_SIZE):
-                self._scanner_settings.products[i] = new_settings.products[i] or self._scanner_settings.products[i]
-            
-            self._scanner_settings.server_ip = new_settings.server_ip or self._scanner_settings.server_ip
-            self._scanner_settings.server_port = new_settings.server_port or self._scanner_settings.server_port
-            self._scanner_settings.gateway_ip = new_settings.gateway_ip or self._scanner_settings.gateway_ip
-            self._scanner_settings.netmask = new_settings.netmask or self._scanner_settings.netmask
+                self._scanner_settings.products[i] = (
+                    new_settings.products[i] or self._scanner_settings.products[i]
+                )
+
+            self._scanner_settings.server_ip = (
+                new_settings.server_ip or self._scanner_settings.server_ip
+            )
+            self._scanner_settings.server_port = (
+                new_settings.server_port or self._scanner_settings.server_port
+            )
+            self._scanner_settings.gateway_ip = (
+                new_settings.gateway_ip or self._scanner_settings.gateway_ip
+            )
+            self._scanner_settings.netmask = (
+                new_settings.netmask or self._scanner_settings.netmask
+            )
 
             self._logger.info("Sending new settings to scannner...")
 
@@ -196,7 +221,7 @@ def scanner_process(scanner: Scanner):
                 scanner_ID=self._info.scanner_id,
                 packet_ID=self._settings_packet_id,
                 packet_code=PacketCode.SETTINGS_SET_CODE,
-                settings=self._scanner_settings #type: ignore
+                settings=self._scanner_settings,  # type: ignore
             )
 
             bytes_packet = build_packet(settings_packet)
@@ -209,19 +234,20 @@ def scanner_process(scanner: Scanner):
                 self._logger.debug("Waiting for response from scanner...")
 
         async def _wait_ping_response(self):
-            await asyncio.sleep(0.1)
             while self._received_ping is False:
                 await asyncio.sleep(0.1)
 
         async def _state_contol_logic(self):
             print("ololo")
-            self._logger.debug(f"Sending ping packet #{self._control_packet_id} to scanner")
+            self._logger.debug(
+                f"Sending ping packet #{self._control_packet_id} to scanner"
+            )
             control_packet = StateControlRequest(
                 PREAMBULA,
                 self._info.scanner_id,
                 self._control_packet_id,
                 PacketCode.STATE_CONTROL_CODE,
-                reserved=0
+                reserved=0,
             )
 
             bytes_packet = build_packet(control_packet)
@@ -233,8 +259,9 @@ def scanner_process(scanner: Scanner):
                 return
 
             try:
-                await asyncio.wait_for(self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT)
-                await asyncio.sleep(0.1)
+                asyncio.wait_for(
+                    self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT
+                )
             except asyncio.exceptions.TimeoutError:
                 self._logger.error("State control packet timeout!")
                 self._is_alive = False
@@ -280,7 +307,6 @@ def scanner_process(scanner: Scanner):
 
                 # time.sleep(0.1)
                 # asyncio.run(time.sleep(0.1))
-
 
             self._logger.error("State control packet was not received in time.")
             self._logger.error("Closing socket.")

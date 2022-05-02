@@ -247,7 +247,6 @@ class Server:
             self._logger.info(f"\tScanner id:      {scanner.info.scanner_id}")
             self._logger.info("\tScanner products:")
             for i in range(len(scanner.settings.products)):
-                # if scanner.settings.products[i] != "":
                 self._logger.info(f"\t\tProduct #{i}: {scanner.settings.products[i]}")
             self._logger.info(f"\tScanner server IP:    {scanner.settings.server_ip}")
             self._logger.info(f"\tScanner server port:  {scanner.settings.server_port}")
