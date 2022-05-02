@@ -6,6 +6,7 @@ from dm_storager.server import Server
 from dm_storager.enviroment import HOST_IP, HOST_PORT, SCANNER_SETTINGS
 from dm_storager.utils.logger import configure_logger
 
+
 def main():
 
     parser = argparse.ArgumentParser("Datamatrix Storager")
@@ -13,7 +14,7 @@ def main():
     parser.add_argument("-v", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.set_defaults(v=False)
-    
+
     args = parser.parse_args()
     is_verbose = args.v
 
@@ -27,12 +28,11 @@ def main():
     except ServerStop:
         main_logger.error("Stop server outside.")
         main_logger.error("Aborting program.")
-        exit(0)
     except Exception:
         main_logger.exception("Server runtime error:")
         server.stop_server()
         main_logger.error("Aborting program.")
-        exit(0)
+
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
