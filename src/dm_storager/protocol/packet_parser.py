@@ -29,7 +29,7 @@ from dm_storager.protocol.const import (
     PACKET_CODE_POS,
     HEADER_LEN,
     STATE_CONTROL_RESERVED_LEN,
-    SETTINGS_APPLY_STATUS_LEN
+    SETTINGS_APPLY_STATUS_LEN,
 )
 
 from dm_storager.protocol.schema import (
@@ -37,15 +37,15 @@ from dm_storager.protocol.schema import (
     HeaderPacket,
     ScannerControlResponse,
     SettingsSetResponse,
-    ArchieveDataRequest
+    ArchieveDataRequest,
 )
 
 ParsedPacketType = Union[
     ScannerControlResponse, SettingsSetResponse, ArchieveDataRequest, None
 ]
 
-def is_valid_header(msg_header: bytes) -> HeaderPacket:
 
+def is_valid_header(msg_header: bytes) -> HeaderPacket:
     def validate_preambula(_slice: bytes) -> str:
         try:
             preambula = _slice.decode(ENCODING)
@@ -72,21 +72,23 @@ def is_valid_header(msg_header: bytes) -> HeaderPacket:
         try:
             packet_code_int = int.from_bytes(_slice, byteorder=BYTEORDER)
             assert PacketCode.has_value(packet_code_int) is True
-            return packet_code_int  #type: ignore
+            return packet_code_int  # type: ignore
         except Exception:
             raise InvalidField(field="Packet Code", slice=_slice)
 
     new_header = HeaderPacket(
-        preambula=  validate_preambula(msg_header[PREAMBULA_POS:SCANNER_ID_POS]),
-        scanner_ID= validate_scanner_id(msg_header[SCANNER_ID_POS:PACKET_ID_POS]),
-        packet_ID=  validate_packet_id(msg_header[PACKET_ID_POS:PACKET_CODE_POS]),
+        preambula=validate_preambula(msg_header[PREAMBULA_POS:SCANNER_ID_POS]),
+        scanner_ID=validate_scanner_id(msg_header[SCANNER_ID_POS:PACKET_ID_POS]),
+        packet_ID=validate_packet_id(msg_header[PACKET_ID_POS:PACKET_CODE_POS]),
         packet_code=validate_packet_code(msg_header[PACKET_CODE_POS:]),
     )
 
     return new_header
 
 
-def parse_state_control_response_packet(header: HeaderPacket, msg_body: bytes) -> ScannerControlResponse:
+def parse_state_control_response_packet(
+    header: HeaderPacket, msg_body: bytes
+) -> ScannerControlResponse:
     try:
         assert len(msg_body) == STATE_CONTROL_RESERVED_LEN
         reserved = int.from_bytes(msg_body, byteorder=BYTEORDER)
@@ -99,11 +101,13 @@ def parse_state_control_response_packet(header: HeaderPacket, msg_body: bytes) -
         header.scanner_ID,
         header.packet_ID,
         header.packet_code,
-        reserved
+        reserved,
     )
 
 
-def parse_settings_set_response_packet(header: HeaderPacket, msg_body: bytes) -> SettingsSetResponse:
+def parse_settings_set_response_packet(
+    header: HeaderPacket, msg_body: bytes
+) -> SettingsSetResponse:
 
     try:
         assert len(msg_body) == SETTINGS_APPLY_STATUS_LEN
@@ -116,61 +120,55 @@ def parse_settings_set_response_packet(header: HeaderPacket, msg_body: bytes) ->
         header.scanner_ID,
         header.packet_ID,
         header.packet_code,
-        response_code
+        response_code,
     )
 
 
 def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
-    
     def validate_records_count(msg_slice: bytes) -> int:
         try:
             return int.from_bytes(msg_slice, byteorder=BYTEORDER)
         except Exception:
-            raise InvalidField(
-                "Archieve data records count", 
-                msg_slice
-            )
+            raise InvalidField("Archieve data records count", msg_slice)
 
     def validate_single_record_len(msg_slice: bytes) -> int:
         try:
             return int.from_bytes(msg_slice, byteorder=BYTEORDER)
         except Exception:
-            raise InvalidField(
-                "Archieve data single record lenght",
-                msg_slice
-            )
+            raise InvalidField("Archieve data single record lenght", msg_slice)
 
     def validate_record_product_id(msg_slice: bytes) -> int:
         try:
             return int.from_bytes(msg_slice, byteorder=BYTEORDER)
         except Exception:
-            raise InvalidField(
-                "Archieve data record product id",
-                msg_slice
-            )
+            raise InvalidField("Archieve data record product id", msg_slice)
 
     try:
-        assert len(msg_body) > (RECORD_COUNT_LEN + RECORD_SINGLE_LEN + RECORD_PRODUCT_ID_LEN)
+        assert len(msg_body) > (
+            RECORD_COUNT_LEN + RECORD_SINGLE_LEN + RECORD_PRODUCT_ID_LEN
+        )
     except AssertionError:
         raise TooShortMessage(None, msg_body)
 
     records_count = validate_records_count(
-        msg_body[RECORD_COUNT_POS: RECORD_COUNT_POS + RECORD_COUNT_LEN]
+        msg_body[RECORD_COUNT_POS : RECORD_COUNT_POS + RECORD_COUNT_LEN]
     )
     single_record_len = validate_single_record_len(
-        msg_body[RECORD_SINGLE_POS: RECORD_SINGLE_POS + RECORD_SINGLE_LEN]
+        msg_body[RECORD_SINGLE_POS : RECORD_SINGLE_POS + RECORD_SINGLE_LEN]
     )
     record_product_id = validate_record_product_id(
-        msg_body[RECORD_PRODUCT_ID_POS: RECORD_PRODUCT_ID_POS + RECORD_PRODUCT_ID_LEN]
+        msg_body[RECORD_PRODUCT_ID_POS : RECORD_PRODUCT_ID_POS + RECORD_PRODUCT_ID_LEN]
     )
 
-    records:List[str] = []
+    records: List[str] = []
     msg_body = msg_body[RECORDS_START_POS:]
 
     try:
-        assert len(msg_body) == records_count*single_record_len
+        assert len(msg_body) == records_count * single_record_len
     except AssertionError:
-        raise TooShortMessage(expected_len=records_count*single_record_len, slice=msg_body)
+        raise TooShortMessage(
+            expected_len=records_count * single_record_len, slice=msg_body
+        )
 
     for i in range(records_count):
         b_record = msg_body[:single_record_len]
@@ -182,10 +180,7 @@ def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRe
         msg_body = msg_body[single_record_len:]
 
     archieve_data = ArchieveData(
-        records_count,
-        single_record_len,
-        record_product_id,
-        records
+        records_count, single_record_len, record_product_id, records
     )
 
     return ArchieveDataRequest(
@@ -193,7 +188,7 @@ def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRe
         header.scanner_ID,
         header.packet_ID,
         header.packet_code,
-        archieve_data
+        archieve_data,
     )
 
 
@@ -220,7 +215,7 @@ def parse_input_message(
     packet = None
 
     header = is_valid_header(msg[0:HEADER_LEN])
-    
+
     if header.packet_code == PacketCode.STATE_CONTROL_CODE:
         packet = parse_state_control_response_packet(header, msg[HEADER_LEN:])
     elif header.packet_code == PacketCode.SETTINGS_SET_CODE:
