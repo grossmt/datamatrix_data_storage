@@ -12,11 +12,18 @@ from dm_storager.protocol.packet_parser import get_scanner_id
 from dm_storager.protocol.utils import format_bytestring
 from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.scanner_network_settings_resolver import (
+    _resolve_scanner_settings,
     resolve_scanners_settings,
 )
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
-from dm_storager.structs import ClientMessage, HandshakeMessage, Scanner, ScannerInfo, ScannerSettings
+from dm_storager.structs import (
+    ClientMessage,
+    HandshakeMessage,
+    Scanner,
+    ScannerInfo,
+    ScannerSettings,
+)
 
 
 class Server:
@@ -87,37 +94,6 @@ class Server:
             self.stop_server()
             raise ServerStop
 
-    def register_single_scanner(self, scanner_info: ScannerInfo) -> bool:
-        """Performs registraion of a given scanner."""
-
-        is_id_unique: bool = scanner_info.scanner_id in list(
-            x.scanner_id for x in self._registred_clients
-        )
-
-        if not is_id_unique:
-            self._registred_clients.append(scanner_info)
-            self._logger.info("Registered scanner:")
-            self._logger.info(f"\tScanner name:    {scanner_info.name}")
-            self._logger.info(f"\tScanner address: {scanner_info.address}")
-            self._logger.info(f"\tScanner id:      {scanner_info.scanner_id}")
-
-            _q: Queue = Queue()
-
-            new_scanner = Scanner(
-                info=scanner_info,
-                # process=Process(target=scanner_process, args=(scanner_info, _q)),
-                process=None,
-                queue=_q,
-                client_socket=None
-            )
-            self._scanners.append(new_scanner)
-            return True
-        else:
-            self._logger.error(
-                f"Scanner with ID {scanner_info.scanner_id} already registred!"
-            )
-            return False
-
     def is_scanner_alive(self, scanner_id: int) -> bool:
         """Check is scanner alive.
 
@@ -166,10 +142,7 @@ class Server:
         for scanner in self._scanners:
             if scanner.info.address == handshake_message.client_ip:
                 scanner.client_socket = handshake_message.client_socket
-                scanner.process = Process(
-                    target=scanner_process, 
-                    args=(scanner,)
-                )
+                scanner.process = Process(target=scanner_process, args=(scanner,))
 
                 try:
                     scanner.process.start()
@@ -185,7 +158,7 @@ class Server:
                     scanner.process.start()
 
                 break
-            
+
     def _handle_client_message(self, client_message: ClientMessage):
         self._logger.debug("Got new message!")
         self._logger.debug(f"\tClient IP:            {client_message.client_ip}")
@@ -247,16 +220,44 @@ class Server:
         return False
 
     def _is_scanner_id_registered(self, scanner_id: int) -> bool:
-        return scanner_id in list(
-            x.scanner_id for x in self._registred_clients
-        )
+        return scanner_id in list(x.scanner_id for x in self._registred_clients)
 
     def _register_scanners_from_settings(self) -> None:
-        clients = resolve_scanners_settings(self._settings_path)
+        scanners = _resolve_scanner_settings(self._settings_path)
 
-        for client in clients:
-            self.register_single_scanner(client)
+        for scanner in scanners:
+            self.register_single_scanner(scanner)
 
         self._logger.info(
             f"There are {len(self._registred_clients)} registred clients."
         )
+
+    def register_single_scanner(self, scanner: Scanner) -> bool:
+        """Performs registraion of a given scanner."""
+
+        is_id_unique: bool = scanner.info.scanner_id in list(
+            x.scanner_id for x in self._registred_clients
+        )
+
+        if not is_id_unique:
+            self._registred_clients.append(scanner.info)
+            self._logger.info("Registered scanner:")
+            self._logger.info(f"\tScanner name:    {scanner.info.name}")
+            self._logger.info(f"\tScanner address: {scanner.info.address}")
+            self._logger.info(f"\tScanner id:      {scanner.info.scanner_id}")
+            self._logger.info("\tScanner products:")
+            for i in range(len(scanner.settings.products)):
+                # if scanner.settings.products[i] != "":
+                self._logger.info(f"\t\tProduct #{i}: {scanner.settings.products[i]}")
+            self._logger.info(f"\tScanner server IP:    {scanner.settings.server_ip}")
+            self._logger.info(f"\tScanner server port:  {scanner.settings.server_port}")
+            self._logger.info(f"\tScanner gateway:      {scanner.settings.gateway_ip}")
+            self._logger.info(f"\tScanner netmask:      {scanner.settings.netmask}")
+
+            self._scanners.append(scanner)
+            return True
+        else:
+            self._logger.error(
+                f"Scanner with ID {scanner.info.scanner_id} already registred!"
+            )
+            return False

@@ -1,5 +1,6 @@
 import logging
 import json
+from dataclasses import asdict, astuple
 import toml
 
 from pydantic import BaseModel
@@ -10,15 +11,17 @@ from dm_storager.exceptions import ConfigNotExists
 from dm_storager.structs import (
     Scanner,
     ScannerInfo,
+    ScannerSettings,
 )
 from dm_storager.utils.logger import configure_logger
+
 
 def resolve_scanners_settings(
     settings_path: Path,
 ) -> List[ScannerInfo]:
 
     logger = configure_logger(__name__)
-    
+
     scanners: List[ScannerInfo] = []
 
     try:
@@ -48,9 +51,7 @@ def resolve_scanners_settings(
     return scanners
 
 
-def _resolve_scanner_settings(
-    settings_path: Path
-) -> List[Scanner]:
+def _resolve_scanner_settings(settings_path: Path) -> List[Scanner]:
     pass
 
     logger = configure_logger(__name__)
@@ -60,13 +61,42 @@ def _resolve_scanner_settings(
         return []
 
     config_dict = toml.load(settings_path)
+    scanners: List[Scanner] = []
 
-    return []
-    # return Config(**config_dict)
+    for client in config_dict["clients"]:
+
+        info_scanner = ScannerInfo(
+            name=config_dict["clients"][client]["name"],
+            address=config_dict["clients"][client]["address"],
+            scanner_id=config_dict["clients"][client]["id"],
+            port=None,
+        )
+
+        scanner_settings = ScannerSettings(
+            products=config_dict["clients"][client]["products"],
+            server_ip=config_dict["clients"][client]["server_ip"],
+            server_port=config_dict["clients"][client]["server_port"],
+            gateway_ip=config_dict["clients"][client]["gateway_ip"],
+            netmask=config_dict["clients"][client]["netmask"],
+        )
+
+        # logger.debug(f"Scanner info: {str(asdict(info_scanner))}")
+        # logger.debug(f"Scanner settings: {str(asdict(scanner_settings))}")
+
+        new_scanner = Scanner(
+            info=info_scanner,
+            settings=scanner_settings,
+            queue=None,
+            process=None,
+            client_socket=None,
+        )
+        scanners.append(new_scanner)
+
+    return scanners
 
 
-path = Path("settings") / "connection_settings.toml"
+# path = Path("settings") / "connection_settings.toml"
 
-l = _resolve_scanner_settings(path)
+# l = _resolve_scanner_settings(path)
 
-pass
+# pass
