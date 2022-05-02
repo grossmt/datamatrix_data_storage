@@ -16,5 +16,5 @@ HOST_IP = os.getenv("SERVER_IP", local_ip)
 HOST_PORT = os.getenv("SERVER_PORT", 50000)
 
 SCANNER_SETTINGS = os.getenv(
-    "SCANNER_SETTINGS", Path("settings") / "connection_settings.json"
+    "SCANNER_SETTINGS", Path("settings") / "connection_settings.toml"
 )
