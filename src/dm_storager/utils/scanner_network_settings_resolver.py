@@ -3,7 +3,6 @@ import json
 from dataclasses import asdict, astuple
 import toml
 
-from pydantic import BaseModel
 from typing import Optional, List, Union, List, NamedTuple
 from pathlib import Path
 from dm_storager.exceptions import ConfigNotExists
