@@ -30,12 +30,11 @@ from dm_storager.protocol.schema import (
 )
 
 
-# def scanner_process(scanner: ScannerInfo, queue: Queue):
 def scanner_process(scanner: Scanner):
     class ScannerHandler:
 
         PING_PERIOD = 10
-        PING_TIMEOUT = 500
+        PING_TIMEOUT = 10
         PRODUCT_LIST_SIZE = 6
 
         def __init__(self, scanner: Scanner) -> None:
@@ -64,24 +63,7 @@ def scanner_process(scanner: Scanner):
 
             self._socket = scanner.client_socket
 
-            # try:
-            #     self._socket.connect((scanner.address, scanner.port))
-            # except TimeoutError:
-            #     self._logger.exception(
-            #         f"Connection timeout to: {scanner.address}:{scanner.port}"
-            #     )
-            #     self._logger.error("Skipping scanner start.")
-            #     self._is_alive = False
-            # except OSError:
-            #     self._logger.exception(
-            #         f"Connection error: {scanner.address}:{scanner.port}"
-            #     )
-            #     self._logger.error("Skipping scanner start.")
-            #     self._is_alive = False
-            # except Exception:
-            #     self._logger.exception("Unhandled exception:")
-            #     self._logger.error("Skipping scanner start.")
-            #     self._is_alive = False
+            self._loop = None
 
         @property
         def is_alive(self) -> bool:
@@ -238,75 +220,82 @@ def scanner_process(scanner: Scanner):
                 await asyncio.sleep(0.1)
 
         async def _state_contol_logic(self):
-            print("ololo")
-            self._logger.debug(
-                f"Sending ping packet #{self._control_packet_id} to scanner"
-            )
-            control_packet = StateControlRequest(
-                PREAMBULA,
-                self._info.scanner_id,
-                self._control_packet_id,
-                PacketCode.STATE_CONTROL_CODE,
-                reserved=0,
-            )
+            
+            while self.is_alive:
 
-            bytes_packet = build_packet(control_packet)
-            try:
-                self._socket.send(bytes_packet)
-            except Exception as ex:
-                self._logger.exception(ex)
-                self._is_alive = False
-                return
-
-            try:
-                asyncio.wait_for(
-                    self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT
+                self._logger.debug(
+                    f"Sending ping packet #{self._control_packet_id} to scanner"
                 )
-            except asyncio.exceptions.TimeoutError:
-                self._logger.error("State control packet timeout!")
-                self._is_alive = False
-            else:
-                self._logger.info("STATE CONTROL PACKET ACCEPTED")
-                self._received_ping = False
+                control_packet = StateControlRequest(
+                    PREAMBULA,
+                    self._info.scanner_id,
+                    self._control_packet_id,
+                    PacketCode.STATE_CONTROL_CODE,
+                    reserved=0,
+                )
+
+                bytes_packet = build_packet(control_packet)
+                try:
+                    self._socket.send(bytes_packet)
+                except Exception as ex:
+                    self._logger.exception(ex)
+                    self._is_alive = False
+                    return
+
+                try:
+                    await asyncio.wait_for(self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT)
+                    await asyncio.sleep(0.5)
+                except asyncio.exceptions.TimeoutError:
+                    self._logger.error("State control packet timeout!")
+                    self._is_alive = False
+                else:
+                    self._logger.info("STATE CONTROL PACKET ACCEPTED")
+                    self._received_ping = False
 
             await asyncio.sleep(ScannerHandler.PING_PERIOD)
 
         async def _scanner_message_hanler(self):
-            if not self._queue.empty():
-                print("lolol")
 
-                message = self._queue.get()
+            while self._is_alive:
 
-                if isinstance(message, ScannerSettings):
-                    self._apply_new_scanner_settings(message)
+                if not self._queue.empty():
+                    message = self._queue.get()
 
-                elif isinstance(message, bytes):
-                    self._logger.debug(f"Got message: {format_bytestring(message)}")
+                    if isinstance(message, ScannerSettings):
+                        self._apply_new_scanner_settings(message)
 
-                    try:
-                        packet_code = get_packet_code(message)
-                    except Exception as ex:
-                        self._logger.exception(ex)
-                        return
+                    elif isinstance(message, bytes):
+                        self._logger.debug(f"Got message: {format_bytestring(message)}")
 
-                    if packet_code == PacketCode.STATE_CONTROL_CODE:
-                        self._handle_state_control_response(message)
-                    elif packet_code == PacketCode.SETTINGS_SET_CODE:
-                        self._handle_settings_set_response(message)
-                    elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
-                        self._handle_archieve_request(message)
-                    else:
-                        self._logger.error(f"")
+                        try:
+                            packet_code = get_packet_code(message)
+                        except Exception as ex:
+                            self._logger.exception(ex)
+                            return
+
+                        if packet_code == PacketCode.STATE_CONTROL_CODE:
+                            self._handle_state_control_response(message)
+                        elif packet_code == PacketCode.SETTINGS_SET_CODE:
+                            self._handle_settings_set_response(message)
+                        elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
+                            self._handle_archieve_request(message)
+                        else:
+                            self._logger.error(f"")
+
+                await asyncio.sleep(0.5)
+
 
         def run_process(self):
             self._logger.debug(f"Start of process of {scanner.info.name}")
 
-            while self._is_alive:
-                # asyncio.run(self._state_contol_logic())
-                asyncio.run(self._scanner_message_hanler())
+            self._loop = asyncio.get_event_loop()
 
-                # time.sleep(0.1)
-                # asyncio.run(time.sleep(0.1))
+            self._loop.run_until_complete(
+                asyncio.gather(self._state_contol_logic(), self._scanner_message_hanler())
+            )
+
+            self._loop.close()
+
 
             self._logger.error("State control packet was not received in time.")
             self._logger.error("Closing socket.")
