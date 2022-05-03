@@ -142,6 +142,7 @@ class Server:
         for scanner in self._scanners:
             if scanner.info.address == handshake_message.client_ip:
                 scanner.client_socket = handshake_message.client_socket
+                scanner.queue = Queue()
                 scanner.process = Process(target=scanner_process, args=(scanner,))
 
                 try:
