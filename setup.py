@@ -36,6 +36,7 @@ setup(
         "dev": [
             "cx-freeze==6.10",
             "pydantic",
+            "toml",
             # Linting
             "wemake-python-styleguide",
             "mypy",
