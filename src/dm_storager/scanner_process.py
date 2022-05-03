@@ -16,7 +16,6 @@ from dm_storager.protocol.utils import format_bytestring
 
 from dm_storager.structs import Scanner, ScannerInfo, ScannerSettings
 from dm_storager.CSVWriter import CSVWriter
-from dm_storager.enviroment import HOST_IP, HOST_PORT
 from dm_storager.utils.logger import configure_logger
 from dm_storager.protocol.packet_builer import build_packet
 from dm_storager.protocol.packet_parser import get_packet_code, parse_input_message
@@ -55,8 +54,8 @@ def scanner_process(scanner: Scanner):
 
             self._scanner_settings = ScannerSettings(
                 products=list("" for i in range(ScannerHandler.PRODUCT_LIST_SIZE)),
-                server_ip=HOST_IP,
-                server_port=HOST_PORT,
+                server_ip="",
+                server_port=0,
                 gateway_ip="",
                 netmask="",
             )
