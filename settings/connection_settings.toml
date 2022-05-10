@@ -1,27 +1,32 @@
 title = "Сетевые настройки сервера и сканеров"
 
 [server]
-address = "192.168.1.20"
-port = 1
+    host = "192.168.1.20"
+    port = 50000
 
 [clients]
-[clients.scanner_1]
-address = "192.168.1.20"
-id = 1
-name = "Scanner #1"
+    [clients.scanner_1]
+        [clients.scanner_1.info]
+            address    = "192.168.1.20"
+            name       = "Scanner #1"
+            scanner_id = 1
 
-gateway_ip = "192.168.1.1"
-netmask = ""
-products = ["Ессентуки №1", "'Мятный' карась", "", "", "", ""]
-server_ip = ""
-server_port = 50001
+        [clients.scanner_1.settings]
+            gateway_ip  = "192.168.1.1"
+            netmask     = ""
+            products    = ["Ессентуки №1", "'Мятный' карась", "", "", "", ""]
+            server_ip   = ""
+            server_port = 50000
 
 [clients.scanner_2]
-address = "192.168.1.10"
-gateway_ip = ""
-id = 2
-name = "Scanner #2"
-netmask = ""
-products = ["", "", "", "", "", ""]
-server_ip = ""
-server_port = 0
+    [clients.scanner_2.info]
+        address    = "192.168.1.10"
+        name       = "Scanner #2"
+        scanner_id = 2
+
+    [clients.scanner_2.settings]
+        gateway_ip  = "192.168.1.1"
+        netmask     = ""
+        products    = ["Консервы ж/б ?/ю2", "'Жидкий' средство #1", "", "", "", ""]
+        server_ip   = ""
+        server_port = 50000
