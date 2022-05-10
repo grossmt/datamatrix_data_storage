@@ -18,9 +18,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/dm_storager/__main__.py",
             "console": "integratedTerminal",
-            "args": [
-                "-v"
-            ]
+            "args": []
             // "justMyCode": false
         }
     ]
