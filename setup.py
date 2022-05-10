@@ -20,10 +20,9 @@ setup(
     author="RFLABC",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires=["StrEnum"],
     package_data={
-        "robster.rs_nge100.config": [
-            "*.json",
+        "dm_storager.assets": [
+            "*.toml",
         ],
     },
     classifiers=[
@@ -32,16 +31,22 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.8",
+    install_requires=[
+        "cx-freeze==6.10",
+        "pydantic",
+        "toml",
+        "click",
+    ],
     extras_require={
         "dev": [
-            "cx-freeze==6.10",
-            "pydantic",
-            "toml",
             # Linting
             "wemake-python-styleguide",
             "mypy",
-            "black==20.8b0",
+            "black",
         ],
         "test": ["pytest", "pytest-dotenv"],
+    },
+    entry_points={
+        "console_scripts": ["dm_storage_server = dm_storager.cli:entry_point"]
     },
 )
