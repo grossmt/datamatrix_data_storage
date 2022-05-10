@@ -15,7 +15,7 @@ from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.utils import format_bytestring
 
 from dm_storager.structs import Scanner, ScannerInfo, ScannerSettings
-from dm_storager.CSVWriter import CSVWriter
+from dm_storager.csv_writer import CSVWriter
 from dm_storager.utils.logger import configure_logger
 from dm_storager.protocol.packet_builer import build_packet
 from dm_storager.protocol.packet_parser import get_packet_code, parse_input_message

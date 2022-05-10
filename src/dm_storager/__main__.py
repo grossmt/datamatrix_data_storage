@@ -1,30 +1,42 @@
+from dm_storager.cli import entry_point as main
+
 import argparse
-import multiprocessing
+
+from pathlib import Path
 
 from dm_storager.server import Server
-from dm_storager.enviroment import SCANNER_SETTINGS, HOST_IP, HOST_PORT
+from dm_storager.enviroment import SCANNER_SETTINGS
 from dm_storager.utils.logger import configure_logger
-from dm_storager.utils.network_settings import get_server_address
 
 from dm_storager.exceptions import ServerStop
 
 
-def main() -> bool:
-
-    parser = argparse.ArgumentParser("Datamatrix Storager")
-
-    parser.add_argument("-v", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
-    parser.set_defaults(v=False)
-
-    args = parser.parse_args()
-    is_verbose = args.v
+def _main():
 
     main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", is_verbose)
-    print("")
 
-    server_ip, server_port = get_server_address(SCANNER_SETTINGS)
-    
+    server = Server()
+
+    if server.is_configured:
+        pass
+        # ready to init and run
+    else:
+        pass
+        # must fill settings file
+
+    server.preconfigure_server(Path(SCANNER_SETTINGS))
+    server.init_server()
+
+    try:
+        server.run_server()
+
+    except ServerStop:
+        main_logger.error("Stop server outside.")
+        main_logger.error("Aborting program.")
+    except Exception:
+        main_logger.exception("Server runtime error:")
+        server.stop_server()
+
     if server_ip and server_port:
 
         try:
@@ -55,11 +67,6 @@ def main() -> bool:
         main_logger.error("Could not start server.")
         return False
 
-if __name__ == "__main__":
-    multiprocessing.freeze_support()
-    should_restart = True
 
-    while should_restart:
-        should_restart = main()
-        
-    print("Aborting program.")
+if __name__ == "__main__":
+    main()

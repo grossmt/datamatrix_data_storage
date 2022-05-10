@@ -1,6 +1,7 @@
+from http import server
 import time
-import threading
 import multiprocessing
+import toml
 
 from multiprocessing import Process, Queue
 from typing import Tuple, List, Optional
@@ -11,9 +12,9 @@ from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
 from dm_storager.protocol.utils import format_bytestring
 from dm_storager.utils.logger import configure_logger
+from dm_storager.utils.network_settings import create_new_default_settings
 from dm_storager.utils.scanner_network_settings_resolver import (
     _resolve_scanner_settings,
-    resolve_scanners_settings,
 )
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
@@ -27,13 +28,24 @@ from dm_storager.structs import (
 
 
 class Server:
-    def __init__(self, ip: str, port: int, registred_clients_settings: Path) -> None:
+    def __init__(self) -> None:
         self._logger = configure_logger("ROOT_SERVER")
 
-        self._queue = ServerQueue(ip, port, self._logger)
+        self._is_configured = False
+
+        self._server_ip: str = ""
+        self._server_port: int = 0
+
+        # self._queue = ServerQueue(ip, port, self._logger)
+        self._queue: Optional[ServerQueue] = None
+
         self._registred_clients: List[ScannerInfo] = []
         self._scanners: List[Scanner] = []
-        self._settings_path = registred_clients_settings
+        self._settings_path: Optional[Path] = None
+
+    @property
+    def is_configured(self) -> bool:
+        return self._is_configured
 
     @property
     def connection_info(self) -> Optional[Tuple[str, int]]:
@@ -47,13 +59,75 @@ class Server:
         else:
             return None
 
-    def init_server(self) -> None:
+    def preconfigure_server(self, settings_path: Path) -> bool:
+
+        self._logger.debug(f"Resolving server connection address from {str(settings_path)}")
+        
+        if not settings_path.exists():
+            self._logger.warning(f"{str(settings_path)} file not found!")
+            self._logger.warning(
+                f"It's ok, we are going to create new setings file with default settings."
+            )
+            self._logger.info(f"Creating new file at {str(settings_path)}")
+
+            try:
+                create_new_default_settings(settings_path)
+            except Exception as ex:
+                self._logger.error(str(ex))
+
+            self._logger.info(f"Created the setting file: {str(settings_path)}")
+            self._logger.info(
+                "Now you shold fill it with valueble data and restart the application."
+            )
+            return False
+
+        self._settings_path = settings_path
+
+        config_dict = toml.load(settings_path)
+
+        try:
+            server_settings = config_dict["server"]
+            self._server_ip = server_settings["address"]
+            self._server_port = server_settings["port"]
+        except KeyError as ex:
+            if ex.args[0] == "server":
+                # no settings for server
+                pass
+            if ex.args[0] == "address":
+                # no settings for server
+                pass
+            if ex.args[0] == "port":
+                # no settings for server
+                pass
+
+        return True
+
+    def init_server(self) -> bool:
         """Init of server.
 
         Performs start of server thread and
         registration of allowed scanners from settings.
         """
         multiprocessing.set_start_method("spawn", force=True)
+
+        try:
+            self._queue = ServerQueue(
+                self._server_ip,
+                self._server_port,
+                self._logger
+            )
+        except OSError as ex:
+            self._logger.error("Bad server connection settings:")
+            if ex.errno == 10049:
+                self._logger.error(f"Bad server IP")
+            if ex.errno == 10048:
+                self._logger.error(f"Bad server port")
+
+            self._logger.error(f"Resolved Server IP:   {self._server_ip}")
+            self._logger.error(f"Resolved Server Port:  {self._server_port}")
+
+            return False
+
 
         self._queue.start_server()
         ip, port = self.connection_info
@@ -62,6 +136,8 @@ class Server:
         self._logger.info(f"\tServer Port: {port}")
 
         self._register_scanners_from_settings()
+
+        return True
 
     def stop_server(self) -> None:
 
