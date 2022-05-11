@@ -1,5 +1,8 @@
 from pathlib import Path
 
+BAD_PORT = 10048
+BAD_HOST_ADDRESS = 10049
+
 
 class Error(Exception):
     """Base server exception."""
@@ -19,6 +22,4 @@ class ScannedIdNotRegistered(Error):
 
 class ServerStop(Error):
     def __init__(self) -> None:
-        super().__init__(
-            "Server stopped outside."
-        )
+        super().__init__("Server stopped outside.")
