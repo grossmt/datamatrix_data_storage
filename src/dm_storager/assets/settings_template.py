@@ -13,7 +13,7 @@ TEMPLATE_CONFIG = Config(
             },
             "settings": {
                 "gateway_ip": "",
-                "netmask": "",
+                "netmask": "255.255.255.0",
                 "products": ["", "", "", "", "", ""],
                 "server_ip": "",
                 "server_port": 0,

@@ -158,4 +158,7 @@ def _fill_template_config():
     _config.clients["scanner_0"]["settings"].server_ip = server_address
     _config.clients["scanner_0"]["settings"].server_port = port
 
+    gateway_ip = server_address.replace(server_address.split(".")[3], "1")
+    _config.clients["scanner_0"]["settings"].gateway_ip = gateway_ip
+
     return _config
