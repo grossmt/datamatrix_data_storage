@@ -1,18 +1,15 @@
-from http import server
 import time
 import multiprocessing
-import toml
 
 from multiprocessing import Process, Queue
 from typing import Tuple, List, Optional
-from pathlib import Path
-from dm_storager.exceptions import ServerStop
 
+from dm_storager import Config
+from dm_storager.exceptions import BAD_HOST_ADDRESS, BAD_PORT, ServerStop
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
 from dm_storager.protocol.utils import format_bytestring
 from dm_storager.utils.logger import configure_logger
-from dm_storager.utils.network_settings import create_new_default_settings
 from dm_storager.utils.scanner_network_settings_resolver import (
     _resolve_scanner_settings,
 )
@@ -28,108 +25,57 @@ from dm_storager.structs import (
 
 
 class Server:
-    def __init__(self) -> None:
-        self._logger = configure_logger("ROOT_SERVER")
+    def __init__(self, config: Config, debug: bool) -> None:
+        self._logger = configure_logger("ROOT_SERVER", debug)
 
-        self._is_configured = False
+        self._config: Config = config
 
         self._server_ip: str = ""
         self._server_port: int = 0
 
-        # self._queue = ServerQueue(ip, port, self._logger)
         self._queue: Optional[ServerQueue] = None
 
         self._registred_clients: List[ScannerInfo] = []
         self._scanners: List[Scanner] = []
-        self._settings_path: Optional[Path] = None
+
+        self._is_configured = self._configure_server()
 
     @property
     def is_configured(self) -> bool:
         return self._is_configured
 
     @property
-    def connection_info(self) -> Optional[Tuple[str, int]]:
+    def connection_info(self) -> Tuple[str, int]:
         """Provides info about server ip and port.
 
         Returns:
             (str, int): IP-address and port of server.
         """
-        if self._queue:
-            return self._queue.server.server_address
-        else:
-            return None
+        return (self._server_ip, self._server_port)
 
-    def preconfigure_server(self, settings_path: Path) -> bool:
+    def _configure_server(self) -> bool:
 
-        self._logger.debug(f"Resolving server connection address from {str(settings_path)}")
-        
-        if not settings_path.exists():
-            self._logger.warning(f"{str(settings_path)} file not found!")
-            self._logger.warning(
-                f"It's ok, we are going to create new setings file with default settings."
-            )
-            self._logger.info(f"Creating new file at {str(settings_path)}")
+        self._server_ip = self._config.server.host
+        self._server_port = self._config.server.port
 
-            try:
-                create_new_default_settings(settings_path)
-            except Exception as ex:
-                self._logger.error(str(ex))
-
-            self._logger.info(f"Created the setting file: {str(settings_path)}")
-            self._logger.info(
-                "Now you shold fill it with valueble data and restart the application."
-            )
-            return False
-
-        self._settings_path = settings_path
-
-        config_dict = toml.load(settings_path)
-
+        # validate connection pair
         try:
-            server_settings = config_dict["server"]
-            self._server_ip = server_settings["address"]
-            self._server_port = server_settings["port"]
-        except KeyError as ex:
-            if ex.args[0] == "server":
-                # no settings for server
-                pass
-            if ex.args[0] == "address":
-                # no settings for server
-                pass
-            if ex.args[0] == "port":
-                # no settings for server
-                pass
-
-        return True
-
-    def init_server(self) -> bool:
-        """Init of server.
-
-        Performs start of server thread and
-        registration of allowed scanners from settings.
-        """
-        multiprocessing.set_start_method("spawn", force=True)
-
-        try:
-            self._queue = ServerQueue(
-                self._server_ip,
-                self._server_port,
-                self._logger
-            )
+            self._queue = ServerQueue(self._server_ip, self._server_port, self._logger)
+            self._queue.start_server()
         except OSError as ex:
             self._logger.error("Bad server connection settings:")
-            if ex.errno == 10049:
-                self._logger.error(f"Bad server IP")
-            if ex.errno == 10048:
-                self._logger.error(f"Bad server port")
+            if ex.errno == BAD_PORT:
+                self._logger.error("Bad server port.")
+            if ex.errno == BAD_HOST_ADDRESS:
+                self._logger.error("Bad server IP.")
 
-            self._logger.error(f"Resolved Server IP:   {self._server_ip}")
-            self._logger.error(f"Resolved Server Port:  {self._server_port}")
+            self._logger.error(f"Resolved Server IP:     {self._server_ip}")
+            self._logger.error(f"Resolved Server port:   {self._server_port}")
 
             return False
 
+        multiprocessing.set_start_method("spawn", force=True)
 
-        self._queue.start_server()
         ip, port = self.connection_info
         self._logger.info("Server initialized:")
         self._logger.info(f"\tServer IP:   {ip}")
@@ -139,20 +85,6 @@ class Server:
 
         return True
 
-    def stop_server(self) -> None:
-
-        for scanner in self._scanners:
-
-            if scanner.process and scanner.process.pid:
-                self._logger.warning(
-                    f"Scanner #{scanner.info.scanner_id}: killing process.",
-                )
-                scanner.process.kill()
-
-        self._queue.server._is_running = False
-        self._queue.server.shutdown()
-        self._queue.server.server_close()
-
     def run_server(self) -> None:
         try:
             while True:
@@ -160,7 +92,6 @@ class Server:
                 while self._queue.exists():
 
                     message = self._queue.get()
-
                     if isinstance(message, ClientMessage):
                         self._handle_client_message(message)
                     elif isinstance(message, HandshakeMessage):
@@ -169,6 +100,18 @@ class Server:
         except KeyboardInterrupt:
             self.stop_server()
             raise ServerStop
+
+    def stop_server(self) -> None:
+        for scanner in self._scanners:
+            if scanner.process and scanner.process.pid:
+                self._logger.warning(
+                    f"Scanner #{scanner.info.scanner_id}: killing process.",
+                )
+                scanner.process.kill()
+
+        self._queue.server.is_running = False
+        self._queue.server.shutdown()
+        self._queue.server.server_close()
 
     def is_scanner_alive(self, scanner_id: int) -> bool:
         """Check is scanner alive.
