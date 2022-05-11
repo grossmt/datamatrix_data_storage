@@ -1,7 +1,3 @@
-.vscode/settings.json
-
-/src/datamatrix_data_storage.egg-info
-
 # general python things to ignore
 build/
 *.py[cod]
@@ -12,6 +8,10 @@ __pycache__/
 *.pyc
 *.egg-info/
 *.egg
+
+#settings
+settings/*
+!settings/.gitkeep
 
 #logs
 logs/*
