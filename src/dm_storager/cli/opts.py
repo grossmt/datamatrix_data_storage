@@ -2,7 +2,7 @@ import click
 
 from pathlib import Path
 
-from dm_storager.utils.path import config_template_path
+from dm_storager.utils.path import default_settings_path
 
 config_opt = click.option(
     "-C",
@@ -10,7 +10,7 @@ config_opt = click.option(
     "config_file_path",
     type=Path,
     prompt=True,
-    default=config_template_path(),
+    default=default_settings_path(),
     help=(
         "Set a path to config or use default to "
         "generate a config in the current folder"
