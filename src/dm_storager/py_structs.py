@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-import toml
-from pathlib import Path
 from socket import socket
 from multiprocessing import Process, Queue
 from typing import Dict, Optional, Union
@@ -47,14 +45,9 @@ class Config(BaseModel):
     """Configuration of server and registered clients."""
 
     title: str
-    subtitle: str
+    subtitle: Optional[str]
     server: NetworkSettings
     clients: ClientSettings
-
-
-def load_config(path_to_config_file: Path) -> Config:
-    config_dict = toml.load(path_to_config_file)
-    return Config(**config_dict)
 
 
 @dataclass
