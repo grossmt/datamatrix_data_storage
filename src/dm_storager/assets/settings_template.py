@@ -1,17 +1,17 @@
 from dm_storager.py_structs import Config
 
 TEMPLATE_CONFIG = Config(
-    title="Сетевые настройки сервера и сканеров",
-    subtitle="Шаблон для заполнения настроек.",
+    title="Network settings of server and scanners",
+    subtitle="Settings template. Fill it correctly.",
     server={"host": "", "port": 0},
     clients={
-        "clients.scanner_0": {
-            "clients.scanner_0.info": {
+        "scanner_0": {
+            "info": {
                 "name": "Default scanner",
                 "scanner_id": 0,
                 "address": "",
             },
-            "clients.scanner_0.settings": {
+            "settings": {
                 "gateway_ip": "",
                 "netmask": "",
                 "products": ["", "", "", "", "", ""],
