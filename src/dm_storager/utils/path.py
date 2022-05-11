@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-SCRIPT_PATH = Path(__file__).resolve().parent.parent
+SCRIPT_PATH = Path.cwd()
 
 
 def application_path() -> Path:
@@ -17,3 +17,23 @@ def assets_path() -> Path:
 def config_template_path() -> Path:
     """Return default config file path."""
     return assets_path() / "settings_template.toml"
+
+
+def default_settings_dir_path() -> Path:
+    """Return default abs path to settings dir."""
+    return SCRIPT_PATH / "settings"
+
+
+def default_settings_path() -> Path:
+    """Return default config file path."""
+    return SCRIPT_PATH / "settings" / "settings.toml"
+
+
+def default_log_dir() -> Path:
+    """Return default abs path to log dir."""
+    return SCRIPT_PATH / "logs"
+
+
+def default_log_file() -> Path:
+    """Return default abs path to log dir."""
+    return default_log_dir() / "server_log"
