@@ -19,7 +19,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
         is_first_handshake: bool = True
 
-        while self.server.is_running:
+        while self.server.is_running:  # type: ignore
             cur_thread = threading.current_thread()
             client_ip = self.client_address[0]
             client_port = self.client_address[1]
@@ -30,7 +30,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             except timeout:
                 if is_first_handshake:
                     is_first_handshake = False
-                    self.server.queue.add(
+                    self.server.queue.add(  # type: ignore
                         HandshakeMessage(
                             client_socket=self.request,
                             client_ip=self.client_address[0],
@@ -42,7 +42,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 b_data = b""
 
             if b_data:
-                self.server.queue.add(
+                self.server.queue.add(  # type: ignore
                     ClientMessage(
                         client_thread=cur_thread,
                         client_ip=client_ip,
@@ -54,19 +54,21 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 break
 
         self.request.close()
-        self.server.logger.warning(f"Connection from {self.client_address[0]} closed.")
+        self.server.logger.warning(  # type: ignore
+            f"Connection from {self.client_address[0]} closed."
+        )
 
 
 class ServerQueue:
     def __init__(self, ip, port, logger):
         self.server = ThreadedTCPServer((ip, port), ThreadedTCPRequestHandler)
-        self.server.queue = self
+        self.server.queue = self  # type: ignore
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = False
         self.server.block_on_close = True
         self.messages: List[ClientMessage] = []
-        self.server.is_running = True
-        self.server.logger = logger
+        self.server.is_running = True  # type: ignore
+        self.server.logger = logger  # type: ignore
 
     @property
     def connection_info(self) -> Tuple[str, int]:

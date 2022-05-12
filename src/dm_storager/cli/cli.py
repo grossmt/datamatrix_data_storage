@@ -15,7 +15,7 @@ from dm_storager.exceptions import ServerStop
 @opts.config_opt
 @opts.debug_flag
 @click.pass_context
-def main(context: click.Context, config_file_path: Path, debug: bool):
+def main(context: click.Context, config_file_path: Path, debug: bool):  # noqa: WPS213
     """Data Matrix Storager system."""
     click.echo("")  # separate program output form user input
     multiprocessing.freeze_support()

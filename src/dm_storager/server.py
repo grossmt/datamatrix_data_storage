@@ -1,6 +1,5 @@
 import time
 import multiprocessing
-
 from multiprocessing import Process, Queue
 from typing import Tuple, List, Optional
 
@@ -10,9 +9,7 @@ from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
 from dm_storager.protocol.utils import format_bytestring
 from dm_storager.utils.logger import configure_logger
-from dm_storager.utils.scanner_network_settings_resolver import (
-    _resolve_scanner_settings,
-)
+
 from dm_storager.scanner_process import scanner_process
 from dm_storager.server_queue import ServerQueue
 from dm_storager.structs import (
@@ -20,7 +17,7 @@ from dm_storager.structs import (
     HandshakeMessage,
     Scanner,
     ScannerInfo,
-    ScannerSettings,
+    ScannerInternalSettings,
 )
 
 
@@ -81,8 +78,7 @@ class Server:
         self._logger.info(f"\tServer IP:   {ip}")
         self._logger.info(f"\tServer Port: {port}")
 
-        self._register_scanners_from_settings()
-
+        self._logger.debug(f"There are {len(self._config.clients)} registred clients.")
         return True
 
     def run_server(self) -> None:

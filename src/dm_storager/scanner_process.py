@@ -14,7 +14,7 @@ from dm_storager.protocol.const import (
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.utils import format_bytestring
 
-from dm_storager.structs import Scanner, ScannerInfo, ScannerSettings
+from dm_storager.structs import Scanner, ScannerInfo, ScannerInternalSettings
 from dm_storager.csv_writer import CSVWriter
 from dm_storager.utils.logger import configure_logger
 from dm_storager.protocol.packet_builer import build_packet
@@ -219,7 +219,7 @@ def scanner_process(scanner: Scanner):
                 await asyncio.sleep(0.1)
 
         async def _state_contol_logic(self):
-            
+
             while self.is_alive:
 
                 self._logger.debug(
@@ -242,7 +242,9 @@ def scanner_process(scanner: Scanner):
                     return
 
                 try:
-                    await asyncio.wait_for(self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT)
+                    await asyncio.wait_for(
+                        self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT
+                    )
                     await asyncio.sleep(0.5)
                 except asyncio.exceptions.TimeoutError:
                     self._logger.error("State control packet timeout!")
@@ -283,23 +285,23 @@ def scanner_process(scanner: Scanner):
 
                 await asyncio.sleep(0.5)
 
-
         def run_process(self):
             self._logger.debug(f"Start of process of {scanner.info.name}")
 
             self._loop = asyncio.get_event_loop()
 
             self._loop.run_until_complete(
-                asyncio.gather(self._state_contol_logic(), self._scanner_message_hanler())
+                asyncio.gather(
+                    self._state_contol_logic(), self._scanner_message_hanler()
+                )
             )
 
             self._loop.close()
 
-
             self._logger.error("State control packet was not received in time.")
             self._logger.error("Closing socket.")
             self._socket.close()
-            self._logger.error(f"Closing process.")
+            self._logger.error("Closing process.")
 
     scanner_handler = ScannerHandler(scanner)
 

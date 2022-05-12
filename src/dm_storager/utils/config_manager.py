@@ -1,4 +1,4 @@
-import toml, rtoml
+import toml
 import os
 import click
 import socket
@@ -7,6 +7,7 @@ from typing import Optional, List
 
 from dm_storager import Config
 from dm_storager.assets import TEMPLATE_CONFIG
+from dm_storager.structs import Scanner
 from dm_storager.utils.path import default_settings_dir_path, default_settings_path
 
 MIN_PORT_NUMBER = 1024
@@ -32,7 +33,13 @@ def get_config(config_file_path: Path) -> Optional[Config]:
             click.echo(f"Reason: {str(ex)}")
             click.echo("Fix it or delete and configure new one from template.")
             return None
-        return parsed_config
+
+        click.echo("Validation of settings...")
+        if _validate_config(parsed_config):
+            click.echo("OK")
+
+            return parsed_config
+        return None
 
     if config_file_path == default_settings_path():
         # create new from default asset
@@ -70,7 +77,6 @@ def _save_config(settings_path: Path, config: Config) -> bool:
                 settings_file,
                 encoder=toml.TomlPreserveInlineDictEncoder(),
             )
-            # rtoml.dump(config.dict(), settings_file, pretty=True)
 
     except Exception:
         click.echo("Failed to create settings file.")
@@ -129,9 +135,10 @@ def _fill_template_config():
     server_address = ips[i]
 
     click.echo(
-        f"Enter the port between {MIN_PORT_NUMBER} and {MAX_PORT_NUMBER}, where server will be run:"
+        f"Enter the port between {MIN_PORT_NUMBER} and {MAX_PORT_NUMBER}, where server will be run:"  # noqa: E501
     )
     is_correct_input = False
+    port = 0
     while not is_correct_input:
         _i = input()
         try:
@@ -151,14 +158,49 @@ def _fill_template_config():
 
     click.echo("Creating configured settings file from template...")
 
-    _config = TEMPLATE_CONFIG
-    _config.server.host = server_address
-    _config.server.port = port
+    TEMPLATE_CONFIG.server.host = server_address
+    TEMPLATE_CONFIG.server.port = port
 
-    _config.clients["scanner_0"]["settings"].server_ip = server_address
-    _config.clients["scanner_0"]["settings"].server_port = port
+    TEMPLATE_CONFIG.clients["scanner_0"]["settings"].server_ip = server_address
+    TEMPLATE_CONFIG.clients["scanner_0"]["settings"].server_port = port
 
     gateway_ip = server_address.replace(server_address.split(".")[3], "1")
-    _config.clients["scanner_0"]["settings"].gateway_ip = gateway_ip
+    TEMPLATE_CONFIG.clients["scanner_0"]["settings"].gateway_ip = gateway_ip
 
-    return _config
+    return TEMPLATE_CONFIG
+
+
+def _validate_config(config: Config) -> bool:
+
+    is_valid = True
+    # all scanners id must be unique
+    id_list = []
+    clients = config.clients
+    for client in clients:
+        id_list.append(clients[client]["info"].scanner_id)  # type: ignore
+        if id_list.count(id_list[-1]) > 1:
+            click.echo("Given settings are invalid:")
+            click.echo(f"\tFound dublicate scanner ID: {id_list[-1]}")
+            is_valid = False
+
+    # validate scanner ips
+    pass
+
+    return is_valid
+
+
+def validate_new_scanner(config: Config, scanner: Scanner) -> bool:
+
+    # all scanners id must be unique
+    id_list = []
+    clients = config.clients
+    for client in clients:
+        id_list.append(clients[client]["info"].scanner_id)  # type: ignore
+
+    if scanner.info.scanner_id in id_list:
+        return False
+
+    # validate scanner ips
+    pass
+
+    return True

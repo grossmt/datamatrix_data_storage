@@ -9,16 +9,6 @@ def application_path() -> Path:
     return SCRIPT_PATH
 
 
-def assets_path() -> Path:
-    """Return abs path to assets inside app."""
-    return SCRIPT_PATH / "assets"
-
-
-def config_template_path() -> Path:
-    """Return default config file path."""
-    return assets_path() / "settings_template.toml"
-
-
 def default_settings_dir_path() -> Path:
     """Return default abs path to settings dir."""
     return SCRIPT_PATH / "settings"
