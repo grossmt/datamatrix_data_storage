@@ -39,6 +39,7 @@ from dm_storager.protocol.schema import (
     SettingsSetResponse,
     ArchieveDataRequest,
 )
+from dm_storager.protocol.utils import format_hex_bytes
 
 ParsedPacketType = Union[
     ScannerControlResponse, SettingsSetResponse, ArchieveDataRequest, None
@@ -54,10 +55,11 @@ def is_valid_header(msg_header: bytes) -> HeaderPacket:
         except Exception:
             raise InvalidField(field="Preambula", slice=_slice)
 
-    def validate_scanner_id(_slice: bytes) -> int:
+    def validate_scanner_id(_slice: bytes) -> str:
         try:
-            scanner_id_int = int.from_bytes(_slice, byteorder=BYTEORDER)
-            return scanner_id_int
+            # scanner_id_int = int.from_bytes(_slice, byteorder=BYTEORDER)
+            scanner_id_hex = format_hex_bytes(_slice)
+            return scanner_id_hex
         except Exception:
             raise InvalidField(field="Scanner ID", slice=_slice)
 
@@ -200,7 +202,7 @@ def get_packet_code(msg: bytes) -> int:
     return header.packet_code
 
 
-def get_scanner_id(msg: bytes) -> int:
+def get_scanner_id(msg: bytes) -> str:
     if len(msg) < MIN_MSG_LEN:
         raise TooShortMessage(None, msg)
 

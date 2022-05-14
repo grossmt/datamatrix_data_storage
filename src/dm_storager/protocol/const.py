@@ -5,6 +5,9 @@ BYTEORDER = "big"
 
 PREAMBULA = "RFLABC"
 
+HEX_PADDING = 6
+
+
 # HEADER
 PREAMBULA_LEN = len(PREAMBULA)
 SCANNER_ID_LEN = 2
@@ -73,7 +76,8 @@ class PacketCode(IntEnum):
 
     @classmethod
     def has_value(cls, value):
-        return value in cls._value2member_map_ 
+        return value in cls._value2member_map_
+
 
 class ResponseCode(IntEnum):
     SUCCSESS = 0
