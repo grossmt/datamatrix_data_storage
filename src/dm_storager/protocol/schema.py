@@ -6,7 +6,7 @@ from typing import List, Annotated
 @dataclass
 class HeaderPacket:
     preambula: str
-    scanner_ID: int
+    scanner_ID: str
     packet_ID: int
     packet_code: PacketCode
 

@@ -4,6 +4,7 @@ import click
 import socket
 from pathlib import Path
 from typing import Optional, List
+from socket import inet_aton as ip_str_to_bytes
 
 from dm_storager import Config
 from dm_storager.assets import TEMPLATE_CONFIG
@@ -37,8 +38,8 @@ def get_config(config_file_path: Path) -> Optional[Config]:
         click.echo("Validation of settings...")
         if _validate_config(parsed_config):
             click.echo("OK")
-
             return parsed_config
+        click.echo("Fix given issues and restart the program.")
         return None
 
     if config_file_path == default_settings_path():
@@ -75,7 +76,6 @@ def _save_config(settings_path: Path, config: Config) -> bool:
             toml.dump(
                 config.dict(),
                 settings_file,
-                encoder=toml.TomlPreserveInlineDictEncoder(),
             )
 
     except Exception:
@@ -161,11 +161,15 @@ def _fill_template_config():
     TEMPLATE_CONFIG.server.host = server_address
     TEMPLATE_CONFIG.server.port = port
 
-    TEMPLATE_CONFIG.clients["scanner_0"]["settings"].server_ip = server_address
-    TEMPLATE_CONFIG.clients["scanner_0"]["settings"].server_port = port
+    TEMPLATE_CONFIG.scanners["0"]["settings"].server_ip = server_address
+    TEMPLATE_CONFIG.scanners["0"]["settings"].server_port = port
+
+    TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_ip = server_address
+    TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_port = port
 
     gateway_ip = server_address.replace(server_address.split(".")[3], "1")
-    TEMPLATE_CONFIG.clients["scanner_0"]["settings"].gateway_ip = gateway_ip
+    TEMPLATE_CONFIG.scanners["0x0001"]["settings"].gateway_ip = gateway_ip
+    TEMPLATE_CONFIG.scanners["0"]["settings"].gateway_ip = gateway_ip
 
     return TEMPLATE_CONFIG
 
@@ -173,18 +177,44 @@ def _fill_template_config():
 def _validate_config(config: Config) -> bool:
 
     is_valid = True
-    # all scanners id must be unique
-    id_list = []
-    clients = config.clients
-    for client in clients:
-        id_list.append(clients[client]["info"].scanner_id)  # type: ignore
-        if id_list.count(id_list[-1]) > 1:
-            click.echo("Given settings are invalid:")
-            click.echo(f"\tFound dublicate scanner ID: {id_list[-1]}")
-            is_valid = False
+    padding = 6
 
-    # validate scanner ips
-    pass
+    for client in config.scanners.copy():
+        hex_id = None
+        # all scanners id must be unique
+        # convert all hex id to str
+        try:
+            str(client).index("0x")
+            # id is hex integer
+            hex_id = f"{int(client, 16):#0{padding}x}".upper().replace("0X", "0x")
+        except ValueError:
+            try:
+                # id is dec integer
+                hex_id = f"{int(client, 10):#0{padding}x}".upper().replace("0X", "0x")
+
+                try:
+                    config.scanners[str(hex_id)]
+                except KeyError:
+                    config.scanners[str(hex_id)] = config.scanners.pop(client)
+                else:
+                    is_valid = False
+                    click.echo("Given settings are invalid:")
+                    click.echo(f"\tFound dublicate scanner ID: {hex_id}")
+
+            except ValueError:
+                is_valid = False
+                click.echo("Given settings are invalid:")
+                click.echo(f"\tFound wrong scanner ID: {client}")
+                continue
+
+        # validate scanner address
+        try:
+            ip_str_to_bytes(config.scanners[str(hex_id)]["info"].address)
+        except OSError:
+            click.echo("Given settings are invalid:")
+            ip = config.scanners[str(hex_id)]["info"].address
+            click.echo(f"\tFound wrong IP address: scanner ID: {hex_id}, IP: {ip}")
+            is_valid = False
 
     return is_valid
 
@@ -193,7 +223,7 @@ def validate_new_scanner(config: Config, scanner: Scanner) -> bool:
 
     # all scanners id must be unique
     id_list = []
-    clients = config.clients
+    clients = config.scanners
     for client in clients:
         id_list.append(clients[client]["info"].scanner_id)  # type: ignore
 
@@ -203,4 +233,8 @@ def validate_new_scanner(config: Config, scanner: Scanner) -> bool:
     # validate scanner ips
     pass
 
+    return True
+
+
+def save_new_scanner(config: Config, scanner: Scanner, config_path: Path) -> bool:
     return True
