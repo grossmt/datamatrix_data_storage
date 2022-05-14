@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from socket import socket
 from multiprocessing import Process, Queue
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Any
 from pydantic import BaseModel, conlist
 from threading import Thread
 
@@ -23,7 +23,7 @@ class ScannerInfo(BaseModel):
 
     name: str
     description: Optional[str]
-    scanner_id: int
+    # scanner_id: int
     address: str
 
 
@@ -37,9 +37,22 @@ class ScannerInternalSettings(BaseModel):
     netmask: str
 
 
-ClientSettings = Dict[
+@dataclass
+class ScannerRuntimeSettings:
+    """Scanner runtime propertiess."""
+
+    port: Optional[int]
+    process: Optional[Process]
+    queue: Optional[Queue]
+    client_socket: Optional[socket]
+
+
+ScannerSettings = Dict[
     ScannerName,
-    Dict[PropertyName, Union[ScannerInfo, ScannerInternalSettings]],
+    Dict[
+        PropertyName,
+        Union[ScannerInfo, ScannerInternalSettings, Any],
+    ],
 ]
 
 
@@ -49,17 +62,7 @@ class Config(BaseModel):
     title: str
     subtitle: Optional[str]
     server: NetworkSettings
-    clients: ClientSettings
-
-
-@dataclass
-class ScannerRuntimeSettings:
-    """Scanner runtime propertiess."""
-
-    port: Optional[int]
-    process: Optional[Process]
-    queue: Optional[Queue]
-    client_socket: Optional[socket]
+    scanners: ScannerSettings
 
 
 @dataclass
