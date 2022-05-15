@@ -14,7 +14,12 @@ from dm_storager.protocol.const import (
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.utils import format_bytestring
 
-from dm_storager.structs import Scanner, ScannerInfo, ScannerInternalSettings
+from dm_storager.structs import (
+    Scanner,
+    ScannerInfo,
+    ScannerInternalSettings,
+    ScannerSettings,
+)
 from dm_storager.csv_writer import CSVWriter
 from dm_storager.utils.logger import configure_logger
 from dm_storager.protocol.packet_builer import build_packet
@@ -29,38 +34,33 @@ from dm_storager.protocol.schema import (
 )
 
 
-def scanner_process(scanner: Scanner):
+def scanner_process(
+    scanner_id: str, scanner_dict: ScannerSettings, is_debug: bool = False
+):
     class ScannerHandler:
 
         PING_PERIOD = 10
         PING_TIMEOUT = 10
         PRODUCT_LIST_SIZE = 6
 
-        def __init__(self, scanner: Scanner) -> None:
+        def __init__(self, scanner: Scanner, is_debug: bool) -> None:
 
-            self._queue: Queue = scanner.queue
-            self._scanner_csv_writer = CSVWriter(scanner.info.scanner_id)
-            self._logger = configure_logger(
-                f"Scanner #{scanner.info.scanner_id}", is_debug=True
-            )
-
+            self._scanner_id = scanner.scanner_id
             self._info = scanner.info
+            self._scanner_settings: ScannerInternalSettings = scanner.settings
+            self._queue: Queue = scanner.runtime.queue
+            self._socket = scanner.runtime.client_socket
+            self._port = scanner.runtime.port
+
+            self._scanner_csv_writer = CSVWriter(self._scanner_id)
+            self._logger = configure_logger(f"Scanner #{self._scanner_id}", is_debug)
+
             self._control_packet_id: int = 0
             self._settings_packet_id: int = 0
             self._archieve_data_packet_id: int = 0
 
             self._is_alive: bool = True
             self._received_ping: bool = False
-
-            self._scanner_settings = ScannerSettings(
-                products=list("" for i in range(ScannerHandler.PRODUCT_LIST_SIZE)),
-                server_ip="",
-                server_port=0,
-                gateway_ip="",
-                netmask="",
-            )
-
-            self._socket = scanner.client_socket
 
             self._loop = None
 
@@ -70,7 +70,6 @@ def scanner_process(scanner: Scanner):
 
         def _handle_state_control_response(self, message: bytes):
             self._received_ping = True
-
             try:
                 parsed_packet = parse_input_message(message)
             except ProtocolMessageError as ex:
@@ -143,7 +142,7 @@ def scanner_process(scanner: Scanner):
 
             response_packet = ArchieveDataResponse(
                 PREAMBULA,
-                self._info.scanner_id,
+                self._scanner_id,
                 self._archieve_data_packet_id,
                 packet_code=PacketCode.ARCHIEVE_DATA_CODE,
                 response_code=ResponseCode.ERROR,
@@ -175,9 +174,11 @@ def scanner_process(scanner: Scanner):
             b_response_packet = build_packet(response_packet)
             self._socket.send(b_response_packet)
 
-        def _apply_new_scanner_settings(self, new_settings: ScannerSettings) -> None:
+        def _apply_new_scanner_settings(
+            self, new_settings: ScannerInternalSettings
+        ) -> None:
 
-            for i in range(ScannerHandler.PRODUCT_LIST_SIZE):
+            for i in range(len(self._scanner_settings.products)):
                 self._scanner_settings.products[i] = (
                     new_settings.products[i] or self._scanner_settings.products[i]
                 )
@@ -199,7 +200,7 @@ def scanner_process(scanner: Scanner):
 
             settings_packet = SettingsSetRequest(
                 preambula=PREAMBULA,
-                scanner_ID=self._info.scanner_id,
+                scanner_ID=self._scanner_id,
                 packet_ID=self._settings_packet_id,
                 packet_code=PacketCode.SETTINGS_SET_CODE,
                 settings=self._scanner_settings,  # type: ignore
@@ -227,7 +228,7 @@ def scanner_process(scanner: Scanner):
                 )
                 control_packet = StateControlRequest(
                     PREAMBULA,
-                    self._info.scanner_id,
+                    self._scanner_id,
                     self._control_packet_id,
                     PacketCode.STATE_CONTROL_CODE,
                     reserved=0,
@@ -262,7 +263,7 @@ def scanner_process(scanner: Scanner):
                 if not self._queue.empty():
                     message = self._queue.get()
 
-                    if isinstance(message, ScannerSettings):
+                    if isinstance(message, ScannerInternalSettings):
                         self._apply_new_scanner_settings(message)
 
                     elif isinstance(message, bytes):
@@ -303,7 +304,14 @@ def scanner_process(scanner: Scanner):
             self._socket.close()
             self._logger.error("Closing process.")
 
-    scanner_handler = ScannerHandler(scanner)
+    scanner = Scanner(
+        scanner_id=scanner_id,
+        info=scanner_dict["info"],
+        settings=scanner_dict["settings"],
+        runtime=scanner_dict["runtime"],
+    )
+
+    scanner_handler = ScannerHandler(scanner, is_debug)
 
     if scanner_handler.is_alive:
         scanner_handler.run_process()
