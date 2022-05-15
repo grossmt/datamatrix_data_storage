@@ -10,7 +10,7 @@ TEMPLATE_CONFIG = Config(
     subtitle="Settings template. Fill it correctly.",
     server=NetworkSettings(host="", port=0),
     scanners={
-        0: {
+        "0": {
             "info": ScannerInfo(
                 name="Scanner #0",
                 description="Example scanner with dec integer ID",
@@ -26,7 +26,7 @@ TEMPLATE_CONFIG = Config(
         },
         "0x0001": {
             "info": ScannerInfo(
-                name="Scanner #1",
+                name="Scanner #0x0001",
                 description="Example scanner with hex integer ID",
                 address="",
             ),
