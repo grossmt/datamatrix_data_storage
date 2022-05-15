@@ -5,8 +5,8 @@ from typing import Optional
 
 from dm_storager import Server, Config
 from dm_storager.cli import opts
+from dm_storager.utils import ConfigManager
 from dm_storager.utils.logger import configure_logger
-from dm_storager.utils.config_manager import get_config
 
 from dm_storager.exceptions import ServerStop
 
@@ -20,23 +20,22 @@ def main(context: click.Context, config_file_path: Path, debug: bool):  # noqa: 
     click.echo("")  # separate program output form user input
     multiprocessing.freeze_support()
 
-    server_config: Optional[Config] = get_config(config_file_path)
+    config_manager = ConfigManager(config_file_path)
 
-    if not server_config:
+    if not config_manager.config:
         context.exit()
 
     main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", debug)
 
     main_logger.info("Creating server with given config.")
 
-    server = Server(server_config, debug)
+    server = Server(config_manager, debug)
 
     if server.is_configured:
         try:
             server.run_server()
         except ServerStop:
             main_logger.error("Stop server outside.")
-            main_logger.error("Aborting program.")
         except Exception:
             main_logger.exception("Server runtime error:")
         finally:
