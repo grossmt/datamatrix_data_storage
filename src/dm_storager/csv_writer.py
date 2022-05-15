@@ -19,7 +19,7 @@ class CSVWriter(object):
 
     HEADER = ["Timestamp", "Product Name", "Record"]
 
-    def __init__(self, scanner_id: int):
+    def __init__(self, scanner_id: str):
         self._result_table: List[Any] = []
         self._scanner_id = scanner_id
         self._result_table = []
@@ -62,7 +62,7 @@ class CSVWriter(object):
             writer = csv.writer(csv_file, delimiter=";")
             writer.writerows(self._result_table)
 
-    def _get_file_path(self, scanner_id: int) -> Path:
+    def _get_file_path(self, scanner_id: str) -> Path:
         data_dir = Path.cwd() / "saved_data"
         os.makedirs(data_dir, exist_ok=True)
         current_date = str(date.today())

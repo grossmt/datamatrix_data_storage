@@ -23,7 +23,6 @@ class ScannerInfo(BaseModel):
 
     name: str
     description: Optional[str]
-    # scanner_id: int
     address: str
 
 
@@ -69,9 +68,10 @@ class Config(BaseModel):
 class Scanner:
     """Scanner connection settings."""
 
+    scanner_id: str
     info: ScannerInfo
     settings: ScannerInternalSettings
-    runtime: Optional[ScannerRuntimeSettings]
+    runtime: ScannerRuntimeSettings
 
 
 @dataclass
