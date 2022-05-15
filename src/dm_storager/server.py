@@ -8,6 +8,7 @@ from dm_storager.exceptions import BAD_HOST_ADDRESS, BAD_PORT, ServerStop
 from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.packet_parser import get_scanner_id
 from dm_storager.protocol.utils import format_bytestring
+from dm_storager.utils.config_manager import ConfigManager
 from dm_storager.utils.logger import configure_logger
 
 from dm_storager.scanner_process import scanner_process
@@ -24,10 +25,12 @@ from dm_storager.structs import (
 
 
 class Server:
-    def __init__(self, config: Config, debug: bool) -> None:
+    def __init__(self, config_manager: ConfigManager, debug: bool) -> None:
         self._logger = configure_logger("ROOT_SERVER", debug)
         self._queue: Optional[ServerQueue] = None
-        self._config: Config = config
+
+        self._config_manager = config_manager
+        self._config: Config = self._config_manager.config
 
         self._is_configured = self._configure_server()
 
@@ -43,6 +46,100 @@ class Server:
             (str, int): IP-address and port of server.
         """
         return (self._config.server.host, self._config.server.port)
+
+    def run_server(self) -> None:
+        try:
+            while True:
+                time.sleep(0.1)
+                while self._queue.exists():  # type: ignore
+
+                    message = self._queue.get()  # type: ignore
+                    if isinstance(message, HandshakeMessage):
+                        self._handle_handshake_message(message)
+                    elif isinstance(message, ClientMessage):
+                        self._handle_client_message(message)
+
+        except KeyboardInterrupt:
+            self.stop_server()
+            raise ServerStop
+
+    def stop_server(self) -> None:
+        for scanner_id in self._config.scanners:
+            try:
+                if (
+                    self._config.scanners[scanner_id]["runtime"].process
+                    and self._config.scanners[scanner_id]["runtime"].process.pid
+                ):
+                    self._logger.warning(
+                        f"Scanner #{scanner_id}: killing process.",
+                    )
+                    self._config.scanners[scanner_id]["runtime"].process.kill()
+            except KeyError:
+                pass
+
+        self._queue.server.is_running = False  # type: ignore
+        self._queue.server.shutdown()  # type: ignore
+        self._queue.server.server_close()  # type: ignore
+
+    def is_scanner_alive(self, scanner_id: str) -> bool:
+        """Check is scanner alive.
+
+        Args:
+            scanner_id (str): hex id of scanner.
+
+        Returns:
+            bool: is scanner alive.
+        """
+        try:
+            if self._config.scanners[scanner_id]["runtime"].process.is_alive():  # type: ignore
+                # self._logger.debug(f"Scanner #{scanner_id} is alive!")
+                return True
+        except KeyError:
+            pass
+
+        return False
+
+    def update_scanner_settings(
+        self, scanner_id, settings: Optional[ScannerInternalSettings] = None
+    ) -> bool:
+        try:
+            if settings:
+                self._config.scanners[scanner_id]["settings"] = settings
+        except KeyError:
+            self._logger.error("No scanner with given ID found!")
+            return False
+
+        if self.is_scanner_alive(scanner_id):
+            self._logger.info(f"Applying new settings to scanner id #{scanner_id}...")
+            current_setings: ScannerInternalSettings = self._config.scanners[
+                scanner_id
+            ]["settings"]
+
+            self._config.scanners[scanner_id]["runtime"].queue.put(current_setings)
+            return True
+
+        self._logger.warning(f"Scanner with id #{scanner_id} is not alive!")
+        return False
+
+    def register_single_scanner(
+        self, scanner_id: str, scanner: ScannerSettings
+    ) -> bool:
+        """Performs registraion of a given scanner."""
+
+        try:
+            self._config.scanners[scanner_id]
+        except KeyError:
+            # ok
+            self._config.scanners[scanner_id] = scanner
+            self._logger.debug("Registered new scanner:")
+            self._emit_debug_scanner_info(scanner_id, scanner)
+
+            # save to settings
+        else:
+            self._logger.error(f"Scanner with ID {scanner_id} already registred!")
+            return False
+
+        return True
 
     def _configure_server(self) -> bool:
 
@@ -77,71 +174,6 @@ class Server:
         self._logger.info(f"There are {len(self._config.scanners)} registred clients.")
         return True
 
-    def run_server(self) -> None:
-        try:
-            while True:
-                time.sleep(0.1)
-                while self._queue.exists():  # type: ignore
-
-                    message = self._queue.get()  # type: ignore
-                    if isinstance(message, HandshakeMessage):
-                        self._handle_handshake_message(message)
-                    elif isinstance(message, ClientMessage):
-                        self._handle_client_message(message)
-
-        except KeyboardInterrupt:
-            self.stop_server()
-            raise ServerStop
-
-    def stop_server(self) -> None:
-        # for scanner in self._scanners:
-        #     if scanner.process and scanner.process.pid:
-        #         self._logger.warning(
-        #             f"Scanner #{scanner.info.scanner_id}: killing process.",
-        #         )
-        #         scanner.process.kill()
-
-        self._queue.server.is_running = False  # type: ignore
-        self._queue.server.shutdown()  # type: ignore
-        self._queue.server.server_close()  # type: ignore
-
-    def is_scanner_alive(self, scanner_id: str) -> bool:
-        """Check is scanner alive.
-
-        Args:
-            scanner_id (str): hex id of scanner.
-
-        Returns:
-            bool: is scanner alive.
-        """
-        try:
-            if self._config.scanners[scanner_id]["runtime"].process.is_alive():  # type: ignore
-                return True
-        except KeyError:
-            pass
-        return False
-
-    def set_scanner_settings(
-        self, scanner_id, settings: ScannerInternalSettings
-    ) -> bool:
-        # for scanner in self._scanners:
-        #     if scanner.info.scanner_id == scanner_id:
-        #         if scanner.process.is_alive():
-        #             self._logger.info(
-        #                 f"Applying new settings to scanner id #{scanner_id}..."
-        #             )
-        #         else:
-        #             self._logger.warning(f"Scanner with id #{scanner_id} is not alive!")
-        #             self._logger.warning(
-        #                 f"Settings will be apllied after scanner resurrection!"
-        #             )
-        #         scanner.queue.put(settings)
-        #         return True
-        # self._config[scanner_id][]
-
-        self._logger.error("No scanner with given ID found!")
-        return False
-
     def _handle_handshake_message(self, handshake_message: HandshakeMessage):
 
         self._logger.debug("Got new connection!")
@@ -160,7 +192,11 @@ class Server:
             port=handshake_message.client_port,
             queue=Queue(),
             process=Process(
-                target=scanner_process, args=(self._config.scanners[scanner_id],)
+                target=scanner_process,
+                args=(
+                    scanner_id,
+                    self._config.scanners[scanner_id],
+                ),
             ),
             client_socket=handshake_message.client_socket,
         )
@@ -178,15 +214,22 @@ class Server:
             self._logger.warning("Restarting process...")
             self._config.scanners[scanner_id]["runtime"].process = Process(
                 target=scanner_process,
-                args=(self._config.scanners[scanner_id],),
+                args=(
+                    scanner_id,
+                    self._config.scanners[scanner_id],
+                ),
             )
             self._config.scanners[scanner_id]["runtime"].process.start()
+
+        # send settings to scanner after handshake
+        self.update_scanner_settings(scanner_id)
 
     def _handle_client_message(self, client_message: ClientMessage):
         self._logger.debug("Got new message!")
         self._logger.debug(f"\tClient IP:            {client_message.client_ip}")
         self._logger.debug(f"\tClient port:          {client_message.client_port}")
 
+        # resolve scanner ID from message
         try:
             msg_scanner_id = get_scanner_id(client_message.client_message)
         except ProtocolMessageError as err:
@@ -199,6 +242,7 @@ class Server:
             )
             return
 
+        # Verify match scanner ID and client IPs
         # if not self._is_scanner_id_registered(msg_scanner_id):
         #     correct_id = 0
         #     for scanner in self._scanners:
@@ -218,7 +262,7 @@ class Server:
 
         scanner = self._config.scanners[msg_scanner_id]
 
-        if scanner["runtime"].process and scanner["runtime"].process.is_alive():
+        if self.is_scanner_alive(msg_scanner_id):
             scanner["runtime"].queue.put(client_message.client_message)
         else:
             try:
@@ -258,26 +302,6 @@ class Server:
         self._logger.debug(f"\tScanner server port: {server_port}")
         self._logger.debug(f"\tScanner gateway IP:  {gateway_ip}")
         self._logger.debug(f"\tScanner netmask:     {netmask}")
-
-    def register_single_scanner(
-        self, scanner_id: str, scanner: ScannerSettings
-    ) -> bool:
-        """Performs registraion of a given scanner."""
-
-        try:
-            self._config.scanners[scanner_id]
-        except KeyError:
-            # ok
-            self._config.scanners[scanner_id] = scanner
-            self._logger.debug("Registered new scanner:")
-            self._emit_debug_scanner_info(scanner_id, scanner)
-
-            # save to settings
-        else:
-            self._logger.error(f"Scanner with ID {scanner_id} already registred!")
-            return False
-
-        return True
 
     def _is_client_registered(self, client_address: str) -> Optional[str]:
         for scanner in self._config.scanners:
