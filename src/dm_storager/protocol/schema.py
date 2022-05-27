@@ -34,6 +34,7 @@ class ScannerSettings:
 @dataclass
 class SettingsSetRequest(HeaderPacket):
     settings: ScannerSettings
+    reserved: int
 
 
 @dataclass
