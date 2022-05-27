@@ -19,7 +19,14 @@ TEMPLATE_CONFIG = Config(
             "settings": ScannerInternalSettings(
                 gateway_ip="",
                 netmask="255.255.255.0",
-                products=["", "", "", "", "", ""],
+                products=[
+                    "Product 1",
+                    "Product 2",
+                    "",
+                    "",
+                    "",
+                    "",
+                ],
                 server_ip="",
                 server_port=0,
             ),
