@@ -1,9 +1,8 @@
 import click
 import multiprocessing
 from pathlib import Path
-from typing import Optional
 
-from dm_storager import Server, Config
+from dm_storager import Server
 from dm_storager.cli import opts
 from dm_storager.utils import ConfigManager
 from dm_storager.utils.logger import configure_logger

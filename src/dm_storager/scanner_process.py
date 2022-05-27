@@ -2,6 +2,8 @@ import socket
 import asyncio
 import time
 import sys
+import os
+
 
 from multiprocessing import Queue
 
@@ -67,6 +69,99 @@ def scanner_process(
         @property
         def is_alive(self) -> bool:
             return self._is_alive
+
+        def run_process(self):
+            """Runs scanner process in loop.
+            Loop runs while scanner is alive.
+            """
+            self._logger.debug(f"Start of process of {scanner.info.name}")
+
+            self._loop = asyncio.get_event_loop()
+
+            self._loop.run_until_complete(
+                asyncio.gather(
+                    self._state_contol_logic(), self._scanner_message_hanler()
+                )
+            )
+
+            self._loop.close()
+
+            self._logger.error("State control packet was not received in time.")
+            self._logger.error("Closing socket.")
+            self._socket.close()
+            self._logger.error("Closing process.")
+
+        # def close_socket
+
+        async def _state_contol_logic(self):
+
+            while self.is_alive:
+                await asyncio.sleep(ScannerHandler.PING_PERIOD)
+
+                self._logger.debug(
+                    f"Sending ping packet #{self._control_packet_id} to scanner"
+                )
+                control_packet = StateControlRequest(
+                    PREAMBULA,
+                    self._scanner_id,
+                    self._control_packet_id,
+                    PacketCode.STATE_CONTROL_CODE,
+                    reserved=0,
+                )
+
+                bytes_packet = build_packet(control_packet)
+                try:
+                    self._socket.send(bytes_packet)
+                except Exception as ex:
+                    self._logger.exception(ex)
+                    self._is_alive = False
+                    return
+
+                try:
+                    await asyncio.wait_for(
+                        self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT
+                    )
+                    await asyncio.sleep(0.5)
+                except asyncio.exceptions.TimeoutError:
+                    self._logger.error("State control packet timeout!")
+                    self._is_alive = False
+                else:
+                    self._logger.info("STATE CONTROL PACKET ACCEPTED")
+                    self._received_ping = False
+
+        async def _wait_ping_response(self):
+            while self._received_ping is False:
+                await asyncio.sleep(0.1)
+
+        async def _scanner_message_hanler(self):
+
+            while self._is_alive:
+
+                if not self._queue.empty():
+                    message = self._queue.get()
+
+                    if isinstance(message, ScannerInternalSettings):
+                        self._apply_new_scanner_settings(message)
+
+                    elif isinstance(message, bytes):
+                        self._logger.debug(f"Got message: {format_bytestring(message)}")
+
+                        try:
+                            packet_code = get_packet_code(message)
+                        except Exception as ex:
+                            self._logger.exception(ex)
+                            return
+
+                        if packet_code == PacketCode.STATE_CONTROL_CODE:
+                            self._handle_state_control_response(message)
+                        elif packet_code == PacketCode.SETTINGS_SET_CODE:
+                            self._handle_settings_set_response(message)
+                        elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
+                            self._handle_archieve_request(message)
+                        else:
+                            self._logger.error(f"")
+
+                await asyncio.sleep(0.5)
 
         def _handle_state_control_response(self, message: bytes):
             self._received_ping = True
@@ -204,6 +299,7 @@ def scanner_process(
                 packet_ID=self._settings_packet_id,
                 packet_code=PacketCode.SETTINGS_SET_CODE,
                 settings=self._scanner_settings,  # type: ignore
+                reserved=0,
             )
 
             bytes_packet = build_packet(settings_packet)
@@ -214,95 +310,6 @@ def scanner_process(
                 self._logger.exception(ex)
             else:
                 self._logger.debug("Waiting for response from scanner...")
-
-        async def _wait_ping_response(self):
-            while self._received_ping is False:
-                await asyncio.sleep(0.1)
-
-        async def _state_contol_logic(self):
-
-            while self.is_alive:
-
-                self._logger.debug(
-                    f"Sending ping packet #{self._control_packet_id} to scanner"
-                )
-                control_packet = StateControlRequest(
-                    PREAMBULA,
-                    self._scanner_id,
-                    self._control_packet_id,
-                    PacketCode.STATE_CONTROL_CODE,
-                    reserved=0,
-                )
-
-                bytes_packet = build_packet(control_packet)
-                try:
-                    self._socket.send(bytes_packet)
-                except Exception as ex:
-                    self._logger.exception(ex)
-                    self._is_alive = False
-                    return
-
-                try:
-                    await asyncio.wait_for(
-                        self._wait_ping_response(), timeout=ScannerHandler.PING_TIMEOUT
-                    )
-                    await asyncio.sleep(0.5)
-                except asyncio.exceptions.TimeoutError:
-                    self._logger.error("State control packet timeout!")
-                    self._is_alive = False
-                else:
-                    self._logger.info("STATE CONTROL PACKET ACCEPTED")
-                    self._received_ping = False
-
-            await asyncio.sleep(ScannerHandler.PING_PERIOD)
-
-        async def _scanner_message_hanler(self):
-
-            while self._is_alive:
-
-                if not self._queue.empty():
-                    message = self._queue.get()
-
-                    if isinstance(message, ScannerInternalSettings):
-                        self._apply_new_scanner_settings(message)
-
-                    elif isinstance(message, bytes):
-                        self._logger.debug(f"Got message: {format_bytestring(message)}")
-
-                        try:
-                            packet_code = get_packet_code(message)
-                        except Exception as ex:
-                            self._logger.exception(ex)
-                            return
-
-                        if packet_code == PacketCode.STATE_CONTROL_CODE:
-                            self._handle_state_control_response(message)
-                        elif packet_code == PacketCode.SETTINGS_SET_CODE:
-                            self._handle_settings_set_response(message)
-                        elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
-                            self._handle_archieve_request(message)
-                        else:
-                            self._logger.error(f"")
-
-                await asyncio.sleep(0.5)
-
-        def run_process(self):
-            self._logger.debug(f"Start of process of {scanner.info.name}")
-
-            self._loop = asyncio.get_event_loop()
-
-            self._loop.run_until_complete(
-                asyncio.gather(
-                    self._state_contol_logic(), self._scanner_message_hanler()
-                )
-            )
-
-            self._loop.close()
-
-            self._logger.error("State control packet was not received in time.")
-            self._logger.error("Closing socket.")
-            self._socket.close()
-            self._logger.error("Closing process.")
 
     scanner = Scanner(
         scanner_id=scanner_id,
@@ -319,6 +326,8 @@ def scanner_process(
         scanner_handler._logger.error(
             "Failed to initialize scanner handler in process."
         )
-        scanner_handler._logger.error(f"Closing process.")
+        scanner_handler._logger.error("Closing process.")
 
-    sys.exit()
+    # quit()
+    os._exit(0)
+    # sys.exit()

@@ -60,7 +60,6 @@ class ConfigManager:
         Returns:
             Config: dict of server configuration.
         """
-
         if config_path.exists():
             try:
                 parsed_config = self._load_config()
