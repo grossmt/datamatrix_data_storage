@@ -22,3 +22,5 @@ API Сервера:
 - register_new_scanner:
 - is_alive(scanner_id):
 - set_scanner_settings(scanner_settings)
+
+python setup_cx_freeze.py bdist_msi -d built_msi
