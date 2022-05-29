@@ -29,20 +29,17 @@ class CSVWriter(object):
     ) -> None:
 
         new_row = []
+        self._result_table = []
 
         for i in range(archieve_data.records_count):
             _timestamp = str(datetime.datetime.now())
             _product_name = scanner_settings.products[archieve_data.product_id]
             _record = archieve_data.records[i]
+
             new_row = [_timestamp, _product_name, _record]
             self._result_table.append(new_row)
 
         self._store_data()
-
-    def _store_header(self) -> None:
-        with open(self._filename, "a", newline="") as csv_file:
-            writer = csv.writer(csv_file, delimiter=";")
-            writer.writerows(CSVWriter.HEADER)
 
     def _store_data(self) -> None:
         self._filename = self._get_file_path(self._scanner_id)
