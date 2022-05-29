@@ -18,9 +18,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):  # noqa: WPS110, WPS231
 
         is_first_handshake: bool = True
+        cur_thread = threading.current_thread()
 
-        while self.server.is_running:  # type: ignore
-            cur_thread = threading.current_thread()
+        while getattr(cur_thread, "do_run", True) and self.server.is_running:  # type: ignore
+
             client_ip = self.client_address[0]
             client_port = self.client_address[1]
 
@@ -35,6 +36,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                             client_socket=self.request,
                             client_ip=self.client_address[0],
                             client_port=self.client_address[1],
+                            client_socket_thread=cur_thread,
                         )
                     )
                 continue
@@ -44,10 +46,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             if b_data:
                 self.server.queue.add(  # type: ignore
                     ClientMessage(
-                        client_thread=cur_thread,
                         client_ip=client_ip,
                         client_port=int(client_port),
                         client_message=b_data,
+                        client_socket_thread=cur_thread,
                     )
                 )
             else:
@@ -64,7 +66,7 @@ class ServerQueue:
         self.server = ThreadedTCPServer((ip, port), ThreadedTCPRequestHandler)
         self.server.queue = self  # type: ignore
         self.server_thread = threading.Thread(target=self.server.serve_forever)
-        self.server_thread.daemon = False
+        self.server_thread.daemon = True
         self.server.block_on_close = True
         self.messages: List[ClientMessage] = []
         self.server.is_running = True  # type: ignore
@@ -78,6 +80,7 @@ class ServerQueue:
         self.server_thread.start()
 
     def stop_server(self):
+        self.server_thread.join()
         pass  # noqa: WPS420
 
     def add(self, message):
