@@ -57,7 +57,6 @@ def is_valid_header(msg_header: bytes) -> HeaderPacket:
 
     def validate_scanner_id(_slice: bytes) -> str:
         try:
-            # scanner_id_int = int.from_bytes(_slice, byteorder=BYTEORDER)
             scanner_id_hex = format_hex_bytes(_slice)
             return scanner_id_hex
         except Exception:

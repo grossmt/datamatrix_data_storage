@@ -1,5 +1,4 @@
 import click
-import multiprocessing
 from pathlib import Path
 
 from dm_storager import Server
@@ -17,7 +16,6 @@ from dm_storager.exceptions import ServerStop
 def main(context: click.Context, config_file_path: Path, debug: bool):  # noqa: WPS213
     """Data Matrix Storager system."""
     click.echo("")  # separate program output form user input
-    multiprocessing.freeze_support()
 
     config_manager = ConfigManager(config_file_path)
 
@@ -27,6 +25,15 @@ def main(context: click.Context, config_file_path: Path, debug: bool):  # noqa: 
     main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", debug)
 
     main_logger.info("Creating server with given config.")
+
+    config_debug = False
+    ENABLE_DEBUG_LIST = ("y", "yes", "Y", "enable", "Enable", "ENABLE")
+    try:
+        config_debug = config_manager.config.debug_flag in ENABLE_DEBUG_LIST
+    except Exception:
+        pass
+
+    debug = debug or config_debug
 
     server = Server(config_manager, debug)
 

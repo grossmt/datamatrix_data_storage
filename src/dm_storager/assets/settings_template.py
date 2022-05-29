@@ -8,6 +8,7 @@ from dm_storager.structs import (
 TEMPLATE_CONFIG = Config(
     title="Network settings of server and scanners",
     subtitle="Settings template. Fill it correctly.",
+    debug_flag="y",
     server=NetworkSettings(host="", port=0),
     scanners={
         "0": {

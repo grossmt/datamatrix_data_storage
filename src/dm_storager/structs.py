@@ -44,6 +44,7 @@ class ScannerRuntimeSettings:
     process: Optional[Process]
     queue: Optional[Queue]
     client_socket: Optional[socket]
+    # socket_thread: Thread
 
 
 ScannerSettings = Dict[
@@ -60,6 +61,7 @@ class Config(BaseModel):
 
     title: str
     subtitle: Optional[str]
+    debug_flag: Optional[str]
     server: NetworkSettings
     scanners: ScannerSettings
 
@@ -79,11 +81,15 @@ class HandshakeMessage:
     client_socket: socket
     client_ip: str
     client_port: int
+    client_socket_thread: Thread
 
 
 @dataclass
 class ClientMessage:
-    client_thread: Thread
+    client_socket_thread: Thread
     client_ip: str
     client_port: int
     client_message: bytes
+
+
+ThreadList = Dict[ScannerName, Thread]

@@ -1,3 +1,5 @@
+import binascii
+
 from dm_storager.protocol.const import (
     ENCODING,
     HEX_PADDING,
@@ -8,28 +10,28 @@ from dm_storager.protocol.const import (
 )
 
 SEPATATORS_POS = [
-    SCANNER_ID_POS,
-    PACKET_ID_POS,
-    PACKET_CODE_POS,
-    PACKET_CODE_POS + PACKET_CODE_LEN,
+    18,
+    24,
+    30,
+    33,
 ]
 
 
 def format_bytestring(msg: bytes) -> str:
     def insert_dash(string, index):
         assert index <= len(string)
-        return string[:index] + " " + string[index:]
+        return string[: index - 1] + " | " + string[index:]
 
-    s_msg = msg.decode(ENCODING)
+    s_msg = str(repr(binascii.hexlify(msg, "-"))[2:-1]).replace("\\x", "")
     iteration = 0
     for i in SEPATATORS_POS:
         try:
             s_msg = insert_dash(s_msg, i + iteration)
-            iteration += 1
+            iteration += 2
         except AssertionError:
             return s_msg
     return s_msg
 
 
 def format_hex_bytes(slice: bytes) -> str:
-    return f"{slice.hex():#0{HEX_PADDING}x}".upper().replace("0X", "0x")
+    return f"0x{slice.hex()}".upper().replace("0X", "0x")

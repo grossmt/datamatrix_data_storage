@@ -19,7 +19,7 @@
             "program": "${workspaceFolder}/src/dm_storager/__main__.py",
             "console": "integratedTerminal",
             "args": [
-                "--debug"
+                // "--debug"
             ]
             // "justMyCode": false
         }
