@@ -5,10 +5,17 @@ from typing import Dict, Optional, Union, Any
 from pydantic import BaseModel, conlist
 from threading import Thread
 
+from enum import auto
+from strenum import StrEnum
 
 Products = conlist(str, min_items=6, max_items=6)
 ScannerName = str
 PropertyName = str
+
+
+class FileFormat(StrEnum):
+    TXT = auto()
+    CSV = auto()
 
 
 class NetworkSettings(BaseModel):
@@ -24,6 +31,8 @@ class ScannerInfo(BaseModel):
     name: str
     description: Optional[str]
     address: str
+    # data_format: Optional[FileFormat]
+    # update_setttings_on_connect: bool
 
 
 class ScannerInternalSettings(BaseModel):
@@ -44,7 +53,6 @@ class ScannerRuntimeSettings:
     process: Optional[Process]
     queue: Optional[Queue]
     client_socket: Optional[socket]
-    # socket_thread: Thread
 
 
 ScannerSettings = Dict[
