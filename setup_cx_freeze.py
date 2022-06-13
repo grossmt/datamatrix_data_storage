@@ -10,7 +10,7 @@ from cx_Freeze import setup, Executable
 
 def read(rel_path: str):  # noqa: D103
     here = os.path.abspath(os.path.dirname(__file__))
-    with codecs.open(os.path.join(here, rel_path), 'r', encoding="utf8") as fp:
+    with codecs.open(os.path.join(here, rel_path), "r", encoding="utf8") as fp:
         return fp.read()
 
 
@@ -43,7 +43,7 @@ class AppConsts(object):
 
     ICON_PATH: str = "resources/icon.ico"
     # VERSION: str = get_version("src/digitalizer/__init__.py")
-    VERSION: str = "0.1.0"
+    VERSION: str = "0.1.1"
     # NAME: str = get_project_name("src/digitalizer/__init__.py")
     NAME: str = "DM_Data_Storager"
 
