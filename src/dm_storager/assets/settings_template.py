@@ -3,6 +3,7 @@ from dm_storager.structs import (
     NetworkSettings,
     ScannerInfo,
     ScannerInternalSettings,
+    FileFormat,
 )
 
 TEMPLATE_CONFIG = Config(
@@ -16,6 +17,8 @@ TEMPLATE_CONFIG = Config(
                 name="Scanner #0",
                 description="Example scanner with dec integer ID",
                 address="",
+                # data_format=FileFormat.CSV,
+                # update_setttings_on_connect=True,
             ),
             "settings": ScannerInternalSettings(
                 gateway_ip="",
@@ -37,6 +40,8 @@ TEMPLATE_CONFIG = Config(
                 name="Scanner #0x0001",
                 description="Example scanner with hex integer ID",
                 address="",
+                # data_format=FileFormat.TXT,
+                # update_setttings_on_connect=True,
             ),
             "settings": ScannerInternalSettings(
                 gateway_ip="",
