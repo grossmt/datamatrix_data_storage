@@ -19,15 +19,16 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
         is_first_handshake: bool = True
         cur_thread = threading.current_thread()
+        setattr(cur_thread, "enabled_socket", True)
 
-        while getattr(cur_thread, "do_run", True) and self.server.is_running:  # type: ignore
+        while getattr(cur_thread, "enabled_socket", True) and self.server.is_running:  # type: ignore
 
             client_ip = self.client_address[0]
             client_port = self.client_address[1]
 
             b_data: bytes = b""
             try:
-                b_data = self.request.recv(1024)
+                b_data = self.request.recv(2048 * 2)
             except timeout:
                 if is_first_handshake:
                     is_first_handshake = False
@@ -55,6 +56,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             else:
                 break
 
+        setattr(cur_thread, "enabled_socket", False)
         self.request.close()
         self.server.logger.warning(  # type: ignore
             f"Connection from {self.client_address[0]} closed."
