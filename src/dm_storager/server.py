@@ -54,8 +54,21 @@ class Server:
         for scanner in self._config.scanners:
             try:
                 _p: Process = self._config.scanners[scanner]["runtime"].process
+
                 if not _p.is_alive():
                     self._stop_scanner_socket(scanner)
+                    continue
+
+                # process is alive, but socket might be closed by scanner
+                if (
+                    getattr(self._socket_thread_list[scanner], "enabled_socket")
+                    is False
+                ):
+                    self._logger.warning(
+                        f"Scanner #{scanner} closed socket.",
+                    )
+                    self._stop_scanner_process(scanner)
+
             except KeyError:
                 pass
 
@@ -80,17 +93,7 @@ class Server:
 
     def stop_server(self) -> None:
         for scanner_id in self._config.scanners:
-            try:
-                if (
-                    self._config.scanners[scanner_id]["runtime"].process
-                    and self._config.scanners[scanner_id]["runtime"].process.pid
-                ):
-                    self._logger.warning(
-                        f"Scanner #{scanner_id}: killing process.",
-                    )
-                    self._config.scanners[scanner_id]["runtime"].process.kill()
-            except KeyError:
-                pass
+            self._stop_scanner_process(scanner_id)
 
         self._queue.server.is_running = False  # type: ignore
         self._queue.server.shutdown()  # type: ignore
@@ -213,7 +216,6 @@ class Server:
                 ),
             ),
             client_socket=handshake_message.client_socket,
-            # socket_thread=handshake_message.client_socket_thread,
         )
 
         self._config.scanners[scanner_id]["runtime"] = runtime_settings
@@ -284,6 +286,8 @@ class Server:
         else:
             try:
                 scanner["runtime"].process.start()
+            except KeyError:
+                pass
             except AssertionError:
                 name = scanner["info"].name
                 self._logger.warning(
@@ -343,4 +347,17 @@ class Server:
 
     def _stop_scanner_socket(self, scanner_id: str) -> None:
         _t = self._socket_thread_list[scanner_id]
-        _t.do_run = False
+        setattr(_t, "enabled_socket", False)
+
+    def _stop_scanner_process(self, scanner_id: str) -> None:
+        try:
+            if (
+                self._config.scanners[scanner_id]["runtime"].process
+                and self._config.scanners[scanner_id]["runtime"].process.pid
+            ):
+                self._logger.warning(
+                    f"Scanner #{scanner_id}: killing process.",
+                )
+                self._config.scanners[scanner_id]["runtime"].process.kill()
+        except KeyError:
+            pass
