@@ -13,10 +13,11 @@ from dm_storager.protocol.exceptions import ProtocolMessageError
 from dm_storager.protocol.utils import format_bytestring
 
 from dm_storager.structs import (
+    FileFormat,
     Scanner,
     ScannerInternalSettings,
 )
-from dm_storager.csv_writer import CSVWriter
+from dm_storager.file_writer import FileWriter
 from dm_storager.utils.logger import configure_logger
 from dm_storager.protocol.packet_builer import build_packet
 from dm_storager.protocol.packet_parser import get_packet_code, parse_input_message
@@ -42,7 +43,7 @@ class ScannerHandler:
         self._socket = scanner.runtime.client_socket
         self._port = scanner.runtime.port
 
-        self._scanner_csv_writer = CSVWriter(self._scanner_id)
+        self._scanner_file_writer = FileWriter(self._scanner_id, FileFormat.TXT)
         self._logger = configure_logger(f"Scanner #{self._scanner_id}", True)
 
         self._control_packet_id: int = 0
@@ -67,7 +68,10 @@ class ScannerHandler:
         self._logger.debug(f"Start of process of {self._info.name}")
 
         self._loop.run_until_complete(
-            asyncio.gather(self._state_contol_logic(), self._scanner_message_hanler())
+            asyncio.gather(
+                self._state_contol_logic(),
+                self._scanner_message_hanler(),
+            )
         )
 
         self._stop_process()
@@ -137,10 +141,12 @@ class ScannerHandler:
                     self._apply_new_scanner_settings(message)
 
                 elif isinstance(message, bytes):
-                    # self._logger.debug(f"Got message: {format_bytestring(message)}")
 
                     try:
                         packet_code = get_packet_code(message)
+                    except ProtocolMessageError as ex:
+                        self._logger.error(ex)
+                        return
                     except Exception as ex:
                         self._logger.exception(ex)
                         return
@@ -163,7 +169,7 @@ class ScannerHandler:
         try:
             parsed_packet = parse_input_message(message)
         except ProtocolMessageError as ex:
-            self._logger.exception(ex)
+            self._logger.error(ex)
             return
         except Exception as ex:
             self._logger.exception(ex)
@@ -185,7 +191,7 @@ class ScannerHandler:
         try:
             parsed_packet = parse_input_message(message)
         except ProtocolMessageError as ex:
-            self._logger.exception(ex)
+            self._logger.error(ex)
             return
         except Exception as ex:
             self._logger.exception(ex)
@@ -233,7 +239,7 @@ class ScannerHandler:
         try:
             parsed_packet = parse_input_message(message)
         except ProtocolMessageError as ex:
-            self._logger.exception(ex)
+            self._logger.error(ex)
             b_response_packet = build_packet(response_packet)
             self._socket.send(b_response_packet)
             return
@@ -245,9 +251,10 @@ class ScannerHandler:
             self._archieve_data_packet_id %= 2 ** (PACKET_ID_LEN * 2)
 
         try:
-            self._scanner_csv_writer.append_data(parsed_packet.archieve_data, self._scanner_settings)  # type: ignore
-        except Exception:
-            self._logger.exception("Storing to CSV Error:")
+            self._scanner_file_writer.append_data(parsed_packet.archieve_data, self._scanner_settings)  # type: ignore
+        except Exception as ex:
+            self._logger.error("Storing to CSV Error:")
+            self._logger.error(ex)
             b_response_packet = build_packet(response_packet)
             self._socket.send(b_response_packet)
             return
