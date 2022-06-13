@@ -36,6 +36,8 @@ setup(
         "pydantic",
         "toml",
         "click",
+        "pypiwin32",
+        "concurrent-log-handler",
     ],
     extras_require={
         "dev": [

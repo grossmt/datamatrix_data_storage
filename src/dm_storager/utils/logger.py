@@ -2,12 +2,12 @@ import os
 import logging
 import click
 
-from logging.handlers import RotatingFileHandler
+from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 from dm_storager.utils.path import default_log_dir, default_log_file
 
 kB = 1024  # noqa: N816
-LOG_FILE_MAX_SIZE = 128 * kB  # noqa: WPS432
+LOG_FILE_MAX_SIZE = 256 * kB  # noqa: WPS432
 
 BACKUP_FILES_COUNT = 10
 
@@ -44,12 +44,13 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
     )
 
     # Setup file handler
-    file_handler = RotatingFileHandler(
+    file_handler = ConcurrentRotatingFileHandler(
         filename=default_log_file(),
         mode="a",
         maxBytes=LOG_FILE_MAX_SIZE,
         backupCount=BACKUP_FILES_COUNT,
     )
+
     file_handler.setFormatter(
         logging.Formatter(
             "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
