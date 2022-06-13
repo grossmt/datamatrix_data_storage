@@ -225,24 +225,3 @@ def parse_input_message(
         packet = parse_archieve_data(header, msg[HEADER_LEN:])
 
     return packet
-
-
-# good = b'RFLABC\x01\x01\x01\x01\x45\x02\x00\x08\x01PRODUCT1PRODUCT2'
-# bad_pream = b'RFLAC\x01\x01\x01\x01\x45\x02\x00\x08\x01PRODUCT1PRODUCT2'
-# bad_packet_code= b'RFLABC\x91\xFF\x01\x01\x47\x02\x00\x08\x01PRODUCT1PRODUCT2'
-
-# bad_record_len = b'RFLABC\x01\x01\x01\x01\x45\x02\x00\x09\x01PRODUCT1PRODUCT2'
-# bad_products = b'RFLABC\x01\x01\x01\x01\x45\x02\x00\x08\x01PRODUCT1PRODU'
-# bad_products2 = b'RFLABC\x01\x01\x01\x01\x45\x02\x00\x08'
-
-# try:
-#     result = parse_input_message(good)
-#     # result = parse_input_message(bad_pream)
-#     # result = parse_input_message(bad_packet_code)
-#     # result = parse_input_message(bad_record_len)
-#     # result = parse_input_message(bad_products)
-#     result = parse_input_message(bad_products2)
-# except Exception:
-#     pass
-
-# pass
