@@ -11,6 +11,17 @@
             "program": "${file}",
             "console": "integratedTerminal",
             // "justMyCode": false
+        },
+        {
+            "name": "Main",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/dm_storager/__main__.py",
+            "console": "integratedTerminal",
+            "args": [
+                // "--debug"
+            ]
+            // "justMyCode": false
         }
     ]
 }

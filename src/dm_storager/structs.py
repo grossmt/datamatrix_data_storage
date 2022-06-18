@@ -1,74 +1,103 @@
 from dataclasses import dataclass
-from enum import Enum
 from socket import socket
-from typing import Optional
+from multiprocessing import Process, Queue
+from typing import Dict, Optional, Union, Any
+from pydantic import BaseModel, conlist
+from threading import Thread
 
-from dm_storager.const import (
-    PREAMBULA,
-    STATE_CONTROL_CODE,
-    STATE_CONTROL_RESERVED,
-    SETTINGS_SET_CODE,
-)
+from enum import auto
+from strenum import StrEnum
 
-
-class SettingsError(Enum):
-    OK = b"\x00\x00\x00\x00"
-
-
-@dataclass
-class SettingsData:
-    product_name: str = ""  # 32 bytes
-    scanner_ip: str = ""  # 4 bytes
-    scanner_port: int = 0  # 2 bytes
-    gateway_port: str = ""  # 4 bytes
-    network_mask: str = ""  # 4 bytes
-    listener_ip: str = ""  # 4 bytes
-    reserved: str = ""  # 46 bytes
+Products = conlist(str, min_items=6, max_items=6)
+ScannerName = str
+PropertyName = str
 
 
-@dataclass
-class HeaderPacket:
-    preambula: str = PREAMBULA
-    scanner_ID: int = 0
-    scanner_ID_len: int = 2
-    packet_ID: int = 0
-    packet_ID_len: int = 2
+class FileFormat(StrEnum):
+    TXT = auto()
+    CSV = auto()
 
 
-@dataclass
-class StateControlPacket(HeaderPacket):
-    packet_code: int = STATE_CONTROL_CODE
-    packet_code_len: int = 1
-    reserved: int = STATE_CONTROL_RESERVED
-    reserved_len: int = 4
-    packet_size: int = 15
+class NetworkSettings(BaseModel):
+    """Connection pair."""
 
-
-@dataclass
-class SettingsSetRequestPacket(HeaderPacket):
-    packet_code: bytes = SETTINGS_SET_CODE
-    settings_data: SettingsData = SettingsData()
-
-
-@dataclass
-class SettingsSetResponse(HeaderPacket):
-    packet_code: bytes = SETTINGS_SET_CODE
-    settings_response: SettingsError = SettingsError.OK
-
-
-@dataclass
-class ScannerStat:
-    address: str
+    host: str
     port: int
-    scanner_id: int
-    packet_id: int = 0
+
+
+class ScannerInfo(BaseModel):
+    """General scanner info."""
+
+    name: str
+    description: Optional[str]
+    address: str
+    # data_format: Optional[FileFormat]
+    # update_setttings_on_connect: bool
+
+
+class ScannerInternalSettings(BaseModel):
+    """Scanner internal settings."""
+
+    products: Products
+    server_ip: str
+    server_port: int
+    gateway_ip: str
+    netmask: str
 
 
 @dataclass
-class ScannerHandler:
-    scanner: ScannerStat
-    scanner_client_socket: Optional[socket] = None
-    scanner_server_socket: Optional[socket] = None
+class ScannerRuntimeSettings:
+    """Scanner runtime propertiess."""
 
-    is_open: bool = False
-    pid: Optional[int] = None
+    port: Optional[int]
+    process: Optional[Process]
+    queue: Optional[Queue]
+    client_socket: Optional[socket]
+
+
+ScannerSettings = Dict[
+    ScannerName,
+    Dict[
+        PropertyName,
+        Union[ScannerInfo, ScannerInternalSettings, Any],
+    ],
+]
+
+
+class Config(BaseModel):
+    """Configuration of server and registered clients."""
+
+    title: str
+    subtitle: Optional[str]
+    debug_flag: Optional[str]
+    server: NetworkSettings
+    scanners: ScannerSettings
+
+
+@dataclass
+class Scanner:
+    """Scanner connection settings."""
+
+    scanner_id: str
+    info: ScannerInfo
+    settings: ScannerInternalSettings
+    runtime: ScannerRuntimeSettings
+
+
+@dataclass
+class HandshakeMessage:
+    client_socket: socket
+    client_ip: str
+    client_port: int
+    client_socket_thread: Thread
+
+
+@dataclass
+class ClientMessage:
+    client_socket_thread: Thread
+    client_ip: str
+    client_port: int
+    client_message: bytes
+
+
+ThreadList = Dict[ScannerName, Thread]

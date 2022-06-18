@@ -1,0 +1,7 @@
+{
+    "python.formatting.provider": "black",
+    "python.analysis.typeCheckingMode": "basic",
+    "evenBetterToml.formatter.alignEntries": true,
+    "evenBetterToml.formatter.indentEntries": true,
+    "evenBetterToml.formatter.indentTables": true,
+}
