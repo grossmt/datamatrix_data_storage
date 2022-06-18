@@ -15,6 +15,8 @@ from dm_storager.utils.network import (
     resolve_local_addresses,
 )
 
+CONFIG_ENABLE_LIST = ("y", "yes", "Y", "enable", "Enable", "ENABLE")
+
 
 class ConfigManager:
     """Config manager for DataMatrix Storager."""

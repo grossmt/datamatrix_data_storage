@@ -2,10 +2,11 @@ import click
 from pathlib import Path
 
 from dm_storager import Server
+import dm_storager
 from dm_storager.cli import opts
 from dm_storager.utils import ConfigManager
 from dm_storager.utils.logger import configure_logger
-
+from dm_storager.utils.config_manager import CONFIG_ENABLE_LIST
 from dm_storager.exceptions import ServerStop
 
 
@@ -20,16 +21,15 @@ def main(context: click.Context, config_file_path: Path, debug: bool):  # noqa: 
     config_manager = ConfigManager(config_file_path)
 
     if not config_manager.config:
+        input()  # freeze app to see output message
         context.exit()
 
     main_logger = configure_logger("SCANNER DATAMATRIX STORAGER", debug)
-
     main_logger.info("Creating server with given config.")
 
     config_debug = False
-    ENABLE_DEBUG_LIST = ("y", "yes", "Y", "enable", "Enable", "ENABLE")
     try:
-        config_debug = config_manager.config.debug_flag in ENABLE_DEBUG_LIST
+        config_debug = config_manager.config.debug_flag in CONFIG_ENABLE_LIST
     except Exception:
         pass
 
@@ -49,3 +49,4 @@ def main(context: click.Context, config_file_path: Path, debug: bool):  # noqa: 
 
     click.echo("")
     main_logger.warning("Aborting program.")
+    input()  # freeze app to see output message
