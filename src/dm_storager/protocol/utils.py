@@ -34,4 +34,15 @@ def format_bytestring(msg: bytes) -> str:
 
 
 def format_hex_bytes(slice: bytes) -> str:
+    """Convert bytes list to formatted HEX str.
+
+    For example: \xab\cd -> 0xABCD
+
+    Args:
+        slice (bytes): source bytes to convert.
+
+    Returns:
+        str: converted string.
+
+    """
     return f"0x{slice.hex()}".upper().replace("0X", "0x")
