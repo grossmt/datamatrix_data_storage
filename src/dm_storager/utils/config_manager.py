@@ -7,13 +7,15 @@ from socket import inet_aton as ip_str_to_bytes
 
 from dm_storager import Config
 from dm_storager.assets import TEMPLATE_CONFIG
-from dm_storager.structs import Scanner
+from dm_storager.structs import Scanner, ScannerSettings
 from dm_storager.utils.path import default_settings_path
+from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.network import (
     MIN_PORT_NUMBER,
     MAX_PORT_NUMBER,
     resolve_local_addresses,
 )
+from dm_storager.utils.string_formatter import hexify_id
 
 CONFIG_ENABLE_LIST = ("y", "yes", "Y", "enable", "Enable", "ENABLE")
 
@@ -24,6 +26,7 @@ class ConfigManager:
     def __init__(self, config_file_path: Path) -> None:
         self._config_path = config_file_path
         self._config: Optional[Config] = self.get_config(config_file_path)
+        self._logger = configure_logger("CONFIG MANAGER", False)
 
     @property
     def config(self) -> Optional[Config]:
@@ -34,11 +37,20 @@ class ConfigManager:
         return self._config_path
 
     def save_config(self, config: Config, config_path: Path) -> bool:
+        """Save given config to specified path.
+
+        Args:
+            config (Config): dict of server configuration.
+            config_path (Path): desired path to save.
+
+        Returns:
+            bool: status of saving config.
+        """
         try:
             os.makedirs(config_path.parent, exist_ok=True)
         except OSError:
-            click.echo("Failed to create directory with settings.")
-            click.echo("Please be sure you have permissions on this directory.")
+            self._logger.error("Failed to create directory with settings.")
+            self._logger.error("Please be sure you have permissions on this directory.")
             return False
 
         try:
@@ -49,10 +61,11 @@ class ConfigManager:
                 )
 
         except Exception:
-            click.echo("Failed to create settings file.")
-            click.echo("Please be sure you have permissions on this directory.")
+            self._logger.error("Failed to save settings to file.")
+            self._logger.error("Please be sure you have permissions on this directory.")
             return False
 
+        self._logger.info(f"Config was successfully saved to {str(config_path)}")
         return True
 
     def get_config(self, config_path: Path) -> Optional[Config]:
@@ -62,74 +75,84 @@ class ConfigManager:
         Returns:
             Config: dict of server configuration.
         """
+
+        self._logger.info(f"Retrieving config from {str(config_path)}")
         if config_path.exists():
             try:
-                parsed_config = self._load_config()
+                parsed_config = self._load_config(config_path)
             except Exception as ex:
-                click.echo("Settings file was corrupted!")
-                click.echo(f"Reason: {str(ex)}")
-                click.echo("Fix it or delete and configure new one from template.")
+                self._logger.error("Settings file was corrupted!")
+                self._logger.error(f"Reason: {str(ex)}")
+                self._logger.error(
+                    "Fix it or delete and configure new one from template."
+                )
                 return None
 
-            click.echo("Validation of settings...")
+            self._logger.info("Validation of settings...")
             if self.validate_config(parsed_config):
-                click.echo("Settings OK")
+                self._logger.info("Settings OK")
                 self._config = parsed_config
                 return parsed_config
-            click.echo("Fix given issues and restart the program.")
+
+            self._logger.error("Fix given issues and restart the program.")
             return None
 
         if config_path == default_settings_path():
             # create new from default asset
-            click.echo("No settings were found on default path.")
-            click.echo("Creating new settings file from default.")
+            self._logger.warning("No settings were found on default path.")
+            self._logger.warning("Creating new settings file from default.")
             template_config = self._fill_template_config()
 
             save_result: bool = self.save_config(template_config, config_path)
             if save_result:
-                click.echo(f"New default settings were created at {str(config_path)}")
-                click.echo(
+                self._logger.info(
+                    f"New default settings were created at {str(config_path)}"
+                )
+                self._logger.info(
                     "Please fill it with valid scanner info and restart programm."
                 )
+            else:
+                return None
         else:
-            click.echo("File not found. Please verify the settings path.")
+            self._logger.error("File not found. Please verify the settings path.")
 
         return None
 
     def validate_config(self, config: Config) -> bool:
+        """Validates given config.
 
+        Specially validates:
+            - Unique ID of scanners. All scanners ID's are converted to HEX value.
+            - IP Address of scanner. Must be valid IPv4 address.
+
+        Args:
+            config (Config): given dict of server config
+
+        Returns
+            bool: is config valid
+        """
         is_valid = True
-        padding = 6
 
-        for client in config.scanners.copy():
+        for client_id in config.scanners.copy():
             hex_id = None
-            # all scanners id must be unique
-            # convert all hex id to str
+
+            hex_id = hexify_id(client_id)
+
+            if not hex_id:
+                self._logger.error("Given settings are invalid:")
+                self._logger.error(f"\tFound wrong scanner ID: {client_id}")
+                continue
+
+            # Replace current record with formatted ID
             try:
-                str(client).index("0x")
-                # id is hex integer
-                hex_id = f"{int(client, 16):#0{padding}x}".upper().replace("0X", "0x")
-            except ValueError:
-                try:
-                    # id is dec integer
-                    hex_id = f"{int(client, 10):#0{padding}x}".upper().replace(
-                        "0X", "0x"
-                    )
-
-                    try:
-                        config.scanners[str(hex_id)]
-                    except KeyError:
-                        config.scanners[str(hex_id)] = config.scanners.pop(client)
-                    else:
-                        is_valid = False
-                        click.echo("Given settings are invalid:")
-                        click.echo(f"\tFound dublicate scanner ID: {hex_id}")
-
-                except ValueError:
-                    is_valid = False
-                    click.echo("Given settings are invalid:")
-                    click.echo(f"\tFound wrong scanner ID: {client}")
-                    continue
+                config.scanners[hex_id]
+            except KeyError:
+                config.scanners[hex_id] = config.scanners.pop(client_id)
+            else:
+                is_valid = False
+                click.echo("Given settings are invalid:")
+                click.echo(f"\tFound dublicate scanner ID: {hex_id}")
+                continue
 
             # validate scanner address
             try:
@@ -142,15 +165,65 @@ class ConfigManager:
 
         return is_valid
 
+    def add_new_scanner(self, scanner: Scanner) -> bool:
+        """Add new scanner to active config and saves it to current path.
+
+        If scanner settings are valid and file is accessible, returns positive.
+
+        Args:
+            scanner (Scanner): new scanner to save.
+
+        Returns:
+            bool: status of saving
+        """
+
+        is_valid = self.validate_new_scanner(scanner)
+        if not is_valid:
+            return False
+
+        if self._config is None:
+            self._logger.error("Config is not initialized!")
+            return False
+
+        # TODO: Implement scanner saving
+        correct_id = hexify_id(scanner.scanner_id)
+
+        # new_record: ScannerSettings = {}
+        # new_record[correct_id]
+
+        # self._config.scanners[correct_id] = scanner
+
+        pass
+
     def validate_new_scanner(self, scanner: Scanner) -> bool:
+        """Validates given scanner.
 
-        # all scanners id must be unique
-        id_list = []
-        clients = self._config.scanners
-        for client in clients:
-            id_list.append(clients[client]["info"].scanner_id)  # type: ignore
+        Specially validates:
+            - ID of scanner. It must be correct and unique.
+            - Address of scanner. (Not implemented yet)
 
-        if scanner.info.scanner_id in id_list:
+        Returns:
+            bool: validation status
+        """
+        correct_id = hexify_id(scanner.scanner_id)
+        if not correct_id:
+            self._logger.error(
+                f"Given scanner is not valid: Bad ID {scanner.scanner_id}"
+            )
+            return False
+
+        if self._config is None:
+            # config is not created yet
+            return False
+
+        try:
+            self._config.scanners[correct_id]
+        except KeyError:
+            pass
+        else:
+            self._logger.error(
+                f"Given scanner is not valid: Not Unique ID: {correct_id}"
+            )
             return False
 
         # validate scanner ips
@@ -158,8 +231,8 @@ class ConfigManager:
 
         return True
 
-    def _load_config(self) -> Config:
-        config_dict = toml.load(self._config_path)
+    def _load_config(self, config_path: Path) -> Config:
+        config_dict = toml.load(config_path)
         return Config(**config_dict)
 
     def _fill_template_config(self):
