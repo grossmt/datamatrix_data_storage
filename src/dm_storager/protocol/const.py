@@ -116,7 +116,7 @@ class ArchieveDataDesc(IntEnum):
     # size of fields
     PRODUCT_CODE_LEN = 1
     MSG_SIZE_LEN = 2
-    RECORDS_COUNT_LEN = 2
+    RECORDS_COUNT_LEN = 1
     SINGLE_RECORD_SIZE_LEN = 1
     # position of fields
     PRODUCT_CODE_POS = 0
