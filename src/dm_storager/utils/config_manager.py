@@ -17,7 +17,7 @@ from dm_storager.utils.network import (
 )
 from dm_storager.utils.string_formatter import hexify_id
 
-CONFIG_ENABLE_LIST = ("y", "yes", "Y", "enable", "Enable", "ENABLE")
+CONFIG_ENABLE_LIST = ("y", "yes", "Y", "enable", "Enable", "ENABLE", "true", "True")
 
 
 class ConfigManager:
