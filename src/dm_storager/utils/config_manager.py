@@ -25,8 +25,9 @@ class ConfigManager:
 
     def __init__(self, config_file_path: Path) -> None:
         self._config_path = config_file_path
-        self._config: Optional[Config] = self.get_config(config_file_path)
         self._logger = configure_logger("CONFIG MANAGER", False)
+
+        self._config: Optional[Config] = self.get_config(config_file_path)
 
     @property
     def config(self) -> Optional[Config]:
@@ -300,14 +301,14 @@ class ConfigManager:
         TEMPLATE_CONFIG.server.host = server_address
         TEMPLATE_CONFIG.server.port = port
 
-        TEMPLATE_CONFIG.scanners["0"]["settings"].server_ip = server_address
-        TEMPLATE_CONFIG.scanners["0"]["settings"].server_port = port
+        TEMPLATE_CONFIG.scanners["1"]["settings"].server_ip = server_address
+        TEMPLATE_CONFIG.scanners["1"]["settings"].server_port = port
 
-        TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_ip = server_address
-        TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_port = port
+        # TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_ip = server_address
+        # TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_port = port
 
         gateway_ip = server_address.replace(server_address.split(".")[3], "1")
-        TEMPLATE_CONFIG.scanners["0x0001"]["settings"].gateway_ip = gateway_ip
-        TEMPLATE_CONFIG.scanners["0"]["settings"].gateway_ip = gateway_ip
+        # TEMPLATE_CONFIG.scanners["0x0001"]["settings"].gateway_ip = gateway_ip
+        TEMPLATE_CONFIG.scanners["1"]["settings"].gateway_ip = gateway_ip
 
         return TEMPLATE_CONFIG
