@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import IntEnum
 
 ENCODING = "cp1251"
@@ -75,15 +76,41 @@ MIN_MSG_LEN = min(
 )
 
 
+@dataclass
+class ProtocolDesc:
+    PREAMBULA: str = "RFLABC"
+    HEX_PADDING: int = 6
+    ENCODING: str = "cp1251"
+    BYTEORDER: str = "big"
+
+
+class HeaderDesc(IntEnum):
+    """
+    Header Descriptors.
+
+    """
+
+    # size of fields
+    PREAMBULA_LEN = len(ProtocolDesc.PREAMBULA)
+    SCANNER_ID_LEN = 2
+    PACKET_ID_LEN = 2
+    PACKET_CODE_LEN = 1
+
+    HEADER_LEN = 11
+    # position of fields
+
+
 class ArchieveDataDesc(IntEnum):
     """
-    0x01      - Product Code
-    0x00 0x13 - Messsage Length
-    0x02      - Records count
-    0x08      - Length of first record
-        0x01 0x23 0x45 0x67 0x89 0xAB 0xCD 0x0D
-    0x09      - Length of second record
-        0xFE 0xDC 0xBA 0x98 0x76 0x54 0x32 0x10 0x0D
+    Archieve Data Descriptors
+
+    0: 0x01      - Product Code
+    1: 0x00 0x13 - Messsage Length
+    3: 0x02      - Records count
+    4: 0x08      - Length of first record
+       0x01 0x23 0x45 0x67 0x89 0xAB 0xCD 0x0D
+       0x09      - Length of second record
+       0xFE 0xDC 0xBA 0x98 0x76 0x54 0x32 0x10 0x0D
     """
 
     # size of fields

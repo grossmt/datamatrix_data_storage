@@ -126,64 +126,71 @@ def parse_settings_set_response_packet(
     )
 
 
-def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
-    def validate_records_count(msg_slice: bytes) -> int:
+def parse_archive_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
+    def validate_int_field(
+        field: str,
+        msg_slice: bytes,
+    ) -> int:
         try:
             return int.from_bytes(msg_slice, byteorder=BYTEORDER)
         except Exception:
-            raise InvalidField("Archieve data records count", msg_slice)
+            raise InvalidField(f"Archieve data record {field}", msg_slice)
 
-    def validate_single_record_len(msg_slice: bytes) -> int:
-        try:
-            return int.from_bytes(msg_slice, byteorder=BYTEORDER)
-        except Exception:
-            raise InvalidField("Archieve data single record lenght", msg_slice)
+    product_id = validate_int_field(
+        field="product id",
+        msg_slice=msg_body[
+            ArchieveDataDesc.PRODUCT_CODE_POS : ArchieveDataDesc.PRODUCT_CODE_POS
+            + ArchieveDataDesc.PRODUCT_CODE_LEN
+        ],
+    )
 
-    def validate_record_product_id(msg_slice: bytes) -> int:
-        try:
-            return int.from_bytes(msg_slice, byteorder=BYTEORDER)
-        except Exception:
-            raise InvalidField("Archieve data record product id", msg_slice)
+    msg_len = validate_int_field(
+        field="message size",
+        msg_slice=msg_body[
+            ArchieveDataDesc.MGS_SIZE_POS : ArchieveDataDesc.MGS_SIZE_POS
+            + ArchieveDataDesc.MSG_SIZE_LEN
+        ],
+    )
 
+    records_count = validate_int_field(
+        field="record count",
+        msg_slice=msg_body[
+            ArchieveDataDesc.RECORDS_COUNT_POS : ArchieveDataDesc.RECORDS_COUNT_POS
+            + ArchieveDataDesc.RECORDS_COUNT_LEN
+        ],
+    )
+
+    # drop header
+    msg_body = msg_body[ArchieveDataDesc.RECORDS_START_POS :]
+
+    # check that msg_len equals real message len
     try:
-        assert len(msg_body) > (
-            RECORD_COUNT_LEN + RECORD_SINGLE_LEN + RECORD_PRODUCT_ID_LEN
-        )
+        real_msg_len = len(msg_body)
+        assert msg_len == real_msg_len
     except AssertionError:
-        raise TooShortMessage(None, msg_body)
-
-    records_count = validate_records_count(
-        msg_body[RECORD_COUNT_POS : RECORD_COUNT_POS + RECORD_COUNT_LEN]
-    )
-    single_record_len = validate_single_record_len(
-        msg_body[RECORD_SINGLE_POS : RECORD_SINGLE_POS + RECORD_SINGLE_LEN]
-    )
-    record_product_id = validate_record_product_id(
-        msg_body[RECORD_PRODUCT_ID_POS : RECORD_PRODUCT_ID_POS + RECORD_PRODUCT_ID_LEN]
-    )
+        raise TooShortMessage(expected_len=msg_len, slice=msg_body)
 
     records: List[str] = []
-    msg_body = msg_body[RECORDS_START_POS:]
-
-    try:
-        assert len(msg_body) == records_count * single_record_len
-    except AssertionError:
-        raise TooShortMessage(
-            expected_len=records_count * single_record_len, slice=msg_body
-        )
 
     for i in range(records_count):
-        b_record = msg_body[:single_record_len]
+        record_len = validate_int_field(
+            field=f"Record #{i} length",
+            msg_slice=msg_body[: ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN],
+        )
+        # drop len
+        msg_body = msg_body[ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN :]
+
+        # extract record
+        b_record = msg_body[:record_len]
         try:
             record = b_record.decode(ENCODING)
         except Exception:
             raise InvalidField("Archieve data record", b_record)
         records.append(record)
-        msg_body = msg_body[single_record_len:]
 
-    archieve_data = ArchieveData(
-        records_count, single_record_len, record_product_id, records
-    )
+        msg_body = msg_body[record_len:]
+
+    archieve_data = ArchieveData(product_id, msg_len, records_count, records)
 
     return ArchieveDataRequest(
         header.preambula,
@@ -192,31 +199,6 @@ def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRe
         header.packet_code,
         archieve_data,
     )
-
-
-def parse_archive_data_v2(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
-    def validate_record_product_id(msg_slice: bytes) -> int:
-        try:
-            return int.from_bytes(msg_slice, byteorder=BYTEORDER)
-        except Exception:
-            raise InvalidField("Archieve data record product id", msg_slice)
-
-    def validate_message_size(msg_slice: bytes) -> int:
-        try:
-            return int.from_bytes(msg_slice, byteorder=BYTEORDER)
-        except Exception:
-            raise InvalidField("Archieve data record product id", msg_slice)
-
-
-    record_product_id = validate_record_product_id(
-        msg_body[
-            ArchieveDataDesc.PRODUCT_CODE_POS : ArchieveDataDesc.PRODUCT_CODE_POS
-            + ArchieveDataDesc.PRODUCT_CODE_LEN
-        ]
-    )
-
-    msg_size = 
-
 
 
 def get_packet_code(msg: bytes) -> int:
