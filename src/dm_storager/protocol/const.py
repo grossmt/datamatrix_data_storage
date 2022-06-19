@@ -43,6 +43,13 @@ SETTINGS_APPLY_STATUS_LEN = 4
 SETTINGS_RESPONSE_LEN = HEADER_LEN + SETTINGS_APPLY_STATUS_LEN
 
 # ARCHIEVE DATA
+
+RECORD_PRODUCT_ID_LEN = 1
+RECORD_MSG_LEN = 2
+RECORD_COUNT_LEN = 2
+RECORD_SINGLE_LEN = 1
+
+
 RECORD_COUNT_LEN = 1
 RECORD_SINGLE_LEN = 2
 RECORD_PRODUCT_ID_LEN = 1
@@ -66,6 +73,29 @@ PACKET_CODE_POS = PACKET_ID_POS + PACKET_ID_LEN
 MIN_MSG_LEN = min(
     STATE_CONTROL_PACKEN_LEN, SETTINGS_RESPONSE_LEN, ARCHIEVE_RESPONSE_LEN
 )
+
+
+class ArchieveDataDesc(IntEnum):
+    """
+    0x01      - Product Code
+    0x00 0x13 - Messsage Length
+    0x02      - Records count
+    0x08      - Length of first record
+        0x01 0x23 0x45 0x67 0x89 0xAB 0xCD 0x0D
+    0x09      - Length of second record
+        0xFE 0xDC 0xBA 0x98 0x76 0x54 0x32 0x10 0x0D
+    """
+
+    # size of fields
+    PRODUCT_CODE_LEN = 1
+    MSG_SIZE_LEN = 2
+    RECORDS_COUNT_LEN = 2
+    SINGLE_RECORD_SIZE_LEN = 1
+    # position of fields
+    PRODUCT_CODE_POS = 0
+    MGS_SIZE_POS = 1
+    RECORDS_COUNT_POS = 3
+    RECORDS_START_POS = 4
 
 
 class PacketCode(IntEnum):

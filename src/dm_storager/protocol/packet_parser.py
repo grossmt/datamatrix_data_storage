@@ -5,6 +5,7 @@ from dm_storager.protocol.exceptions import (
     TooShortMessage,
 )
 from dm_storager.protocol.const import (
+    ArchieveDataDesc,
     # general
     ENCODING,
     BYTEORDER,
@@ -191,6 +192,31 @@ def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRe
         header.packet_code,
         archieve_data,
     )
+
+
+def parse_archive_data_v2(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
+    def validate_record_product_id(msg_slice: bytes) -> int:
+        try:
+            return int.from_bytes(msg_slice, byteorder=BYTEORDER)
+        except Exception:
+            raise InvalidField("Archieve data record product id", msg_slice)
+
+    def validate_message_size(msg_slice: bytes) -> int:
+        try:
+            return int.from_bytes(msg_slice, byteorder=BYTEORDER)
+        except Exception:
+            raise InvalidField("Archieve data record product id", msg_slice)
+
+
+    record_product_id = validate_record_product_id(
+        msg_body[
+            ArchieveDataDesc.PRODUCT_CODE_POS : ArchieveDataDesc.PRODUCT_CODE_POS
+            + ArchieveDataDesc.PRODUCT_CODE_LEN
+        ]
+    )
+
+    msg_size = 
+
 
 
 def get_packet_code(msg: bytes) -> int:
