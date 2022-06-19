@@ -126,7 +126,7 @@ def parse_settings_set_response_packet(
     )
 
 
-def parse_archive_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
+def parse_archieve_data(header: HeaderPacket, msg_body: bytes) -> ArchieveDataRequest:
     def validate_int_field(
         field: str,
         msg_slice: bytes,

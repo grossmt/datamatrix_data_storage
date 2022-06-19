@@ -253,7 +253,7 @@ class ScannerHandler:
         try:
             self._scanner_file_writer.append_data(parsed_packet.archieve_data, self._scanner_settings)  # type: ignore
         except Exception as ex:
-            self._logger.error("Storing to CSV Error:")
+            self._logger.error("Storing data to File Error:")
             self._logger.error(ex)
             b_response_packet = build_packet(response_packet)
             self._socket.send(b_response_packet)
