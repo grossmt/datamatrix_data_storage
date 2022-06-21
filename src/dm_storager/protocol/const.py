@@ -23,7 +23,7 @@ class ProtocolDesc:
     PREAMBULA: str = "RFLABC"
     HEX_PADDING: int = 6
     ENCODING: str = "cp1251"
-    BYTEORDER: str = "big"
+    BYTEORDER = "big"
 
 
 class HeaderDesc(IntEnum):
