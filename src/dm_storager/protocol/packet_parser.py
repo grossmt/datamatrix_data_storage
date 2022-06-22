@@ -1,3 +1,5 @@
+import binascii
+
 from functools import wraps
 from typing import Callable, List, Union, Tuple, Optional
 
@@ -9,6 +11,7 @@ from dm_storager.protocol.const import (
     ProtocolDesc,
     HeaderDesc,
     StateControlDesc,
+    ScannerSettingsDesc,
     ArchieveDataDesc,
     # general
     ENCODING,
@@ -44,7 +47,8 @@ from dm_storager.protocol.schema import (
     SettingsSetResponse,
     ArchieveDataRequest,
 )
-from dm_storager.protocol.utils import format_hex_bytes
+from dm_storager.protocol.utils import format_hex_value
+from dm_storager.utils.logger import configure_logger
 
 ParsedPacketType = Union[
     ScannerControlResponse, SettingsSetResponse, ArchieveDataRequest, None
@@ -62,7 +66,7 @@ def is_valid_header(msg_header: bytes) -> HeaderPacket:
 
     def validate_scanner_id(_slice: bytes) -> str:
         try:
-            scanner_id_hex = format_hex_bytes(_slice)
+            scanner_id_hex = format_hex_value(_slice)
             return scanner_id_hex
         except Exception:
             raise InvalidField(field="Scanner ID", slice=_slice)
@@ -252,14 +256,16 @@ def _handle_errors(method: Callable):
 
         try:
             method_output = method(self, *method_args, **method_kwargs)
-        except Exception:
-            pass
+        except TooShortMessage as err:
+            return None
+        except InvalidField as err:
+            return None
 
     return _impl
 
 
 class PacketParser:
-    def __init__(self) -> None:
+    def __init__(self, debug: bool = False) -> None:
         self._packet_code: Optional[int] = None
         self._scanner_id: Optional[str] = None
 
@@ -268,8 +274,17 @@ class PacketParser:
 
         self._formatted_raw_msg: str = ""
 
+        self._logger = configure_logger("PROTOCOL PARSER", debug)
+
     @_handle_errors
     def get_parsed_message(self, msg: bytes) -> ParsedPacketType:
+        """Parse input message."""
+
+        self._formatted_raw_msg = ""
+        self._packet = None
+        self._packet_code = None
+        self._scanner_id = None
+
         self._header = self._parse_header(msg[0 : HeaderDesc.HEADER_LEN])
 
         self._packet_code = self._header.packet_code
@@ -278,19 +293,25 @@ class PacketParser:
         msg_body = msg[HeaderDesc.HEADER_LEN :]
 
         if self._header.packet_code == PacketCode.STATE_CONTROL_CODE:
-            self._packet = parse_state_control_response_packet(msg_body)
+            self._packet = self._parse_state_control_response_packet(msg_body)
         elif self._header.packet_code == PacketCode.SETTINGS_SET_CODE:
-            self._packet = parse_settings_set_response_packet(msg_body)
+            self._packet = self._parse_settings_set_response_packet(msg_body)
         if self._header.packet_code == PacketCode.ARCHIEVE_DATA_CODE:
-            self._packet = parse_archieve_data(msg_body)
+            self._packet = self._parse_archieve_data(msg_body)
 
         return self._packet
 
     def _parse_int_field(self, field_name: str, _slice: bytes) -> int:
         try:
+            self._formatted_raw_msg += self._format_byte_string(_slice)
             return int.from_bytes(_slice, byteorder=ProtocolDesc.BYTEORDER)
         except Exception:
-            raise InvalidField(f"{field_name}", _slice)
+            raise InvalidField(field_name, _slice)
+
+    def _format_byte_string(self, byte_str: bytes) -> str:
+        s_msg = str(repr(binascii.hexlify(byte_str, "-"))[2:-1]).replace("\\x", "")
+
+        return s_msg + " | "
 
     def _parse_header(self, msg_header: bytes) -> HeaderPacket:
 
@@ -310,13 +331,15 @@ class PacketParser:
         try:
             preambula = _slice.decode(ProtocolDesc.ENCODING)
             assert preambula == ProtocolDesc.PREAMBULA
+            self._formatted_raw_msg += self._format_byte_string(_slice)
             return preambula
         except Exception:
             raise InvalidField(field="Preambula", slice=_slice)
 
     def _validate_scanner_id(self, _slice: bytes) -> str:
         try:
-            return format_hex_bytes(_slice)
+            self._formatted_raw_msg += self._format_byte_string(_slice)
+            return format_hex_value(_slice)
         except Exception:
             raise InvalidField(field="Scanner ID", slice=_slice)
 
@@ -352,6 +375,91 @@ class PacketParser:
             self._header.packet_ID,  # type: ignore
             self._header.packet_code,  # type: ignore
             reserved,
+        )
+
+    def _parse_settings_set_response_packet(
+        self, msg_body: bytes
+    ) -> SettingsSetResponse:
+        try:
+            assert len(msg_body) == ScannerSettingsDesc.RESPONSE_CODE_LEN
+            response_code = self._parse_int_field(
+                field_name="Settings set Response code", _slice=msg_body
+            )
+        except Exception:
+            raise InvalidField("Settings set response code", msg_body)
+
+        return SettingsSetResponse(
+            self._header.preambula,  # type: ignore
+            self._header.scanner_ID,  # type: ignore
+            self._header.packet_ID,  # type: ignore
+            self._header.packet_code,  # type: ignore
+            response_code,
+        )
+
+    def _parse_archieve_data(self, msg_body: bytes) -> ArchieveDataRequest:
+
+        product_id = self._parse_int_field(
+            field_name="Product ID",
+            _slice=msg_body[
+                ArchieveDataDesc.PRODUCT_CODE_POS : ArchieveDataDesc.PRODUCT_CODE_POS
+                + ArchieveDataDesc.PRODUCT_CODE_LEN
+            ],
+        )
+
+        msg_len = self._parse_int_field(
+            field_name="Message size",
+            _slice=msg_body[
+                ArchieveDataDesc.MGS_SIZE_POS : ArchieveDataDesc.MGS_SIZE_POS
+                + ArchieveDataDesc.MSG_SIZE_LEN
+            ],
+        )
+
+        records_count = self._parse_int_field(
+            field_name="Record count",
+            _slice=msg_body[
+                ArchieveDataDesc.RECORDS_COUNT_POS : ArchieveDataDesc.RECORDS_COUNT_POS
+                + ArchieveDataDesc.RECORDS_COUNT_LEN
+            ],
+        )
+
+        # drop post-header consts
+        msg_body = msg_body[ArchieveDataDesc.RECORDS_START_POS :]
+
+        # check that msg_len equals real message len
+        try:
+            real_msg_len = len(msg_body)
+            assert msg_len == real_msg_len
+        except AssertionError:
+            raise TooShortMessage(expected_len=msg_len, slice=msg_body)
+
+        records: List[str] = []
+
+        for i in range(records_count):
+            record_len = self._parse_int_field(
+                field_name=f"Record #{i} length",
+                _slice=msg_body[: ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN],
+            )
+            # drop len
+            msg_body = msg_body[ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN :]
+
+            # extract record
+            b_record = msg_body[:record_len]
+            try:
+                record = b_record.decode(ProtocolDesc.ENCODING)
+            except Exception:
+                raise InvalidField("Archieve data record", b_record)
+            records.append(record)
+
+            msg_body = msg_body[record_len:]
+
+        archieve_data = ArchieveData(product_id, msg_len, records_count, records)
+
+        return ArchieveDataRequest(
+            self._header.preambula,  # type: ignore
+            self._header.scanner_ID,  # type: ignore
+            self._header.packet_ID,  # type: ignore
+            self._header.packet_code,  # type: ignore
+            archieve_data,
         )
 
     # def get_packet_code(self, msg: bytes) -> int:
