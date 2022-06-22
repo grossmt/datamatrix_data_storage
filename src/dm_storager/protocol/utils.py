@@ -32,7 +32,7 @@ def format_hex_value(value: Union[bytes, str]) -> Optional[str]:
 
     For example: \xab\cd  -> "0xABCD"
     For example: "0xabcd" -> "0xABCD"
-    For example: "10"     -> "0x000F"
+    For example: "10"     -> "0x000A"
     For example: "abcd"   -> None
 
     Args:
