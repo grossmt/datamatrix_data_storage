@@ -48,12 +48,26 @@ class HeaderDesc(IntEnum):
 
 
 class StateControlDesc(IntEnum):
+    """
+    State Control Packet Descriptors.
+
+    """
+
     # size of fields
     RESERVED_LEN = 4
+
+    # position of fields
+    RESERVED_POS = HeaderDesc.HEADER_LEN
+
     PACKET_LEN = HeaderDesc.HEADER_LEN + RESERVED_LEN
 
 
 class ScannerSettingsDesc(IntEnum):
+    """
+    Scanner Settings Packet Descriptors.
+
+    """
+
     # size of fields
     PRODUCT_NAME_LEN = 32
     PRODUCT_COUNT = 6
@@ -73,13 +87,14 @@ class ScannerSettingsDesc(IntEnum):
         + RESERVED_LEN
     )
 
+    RESPONSE_CODE_POS = HeaderDesc.HEADER_LEN
     RESPONSE_CODE_LEN = 4
     RESPONSE_PACKET_LEN = HeaderDesc.HEADER_LEN + RESPONSE_CODE_LEN
 
 
 class ArchieveDataDesc(IntEnum):
     """
-    Archieve Data Descriptors
+    Archieve Data Packet Descriptors
 
     0: 0x01      - Product Code
     1: 0x00 0x13 - Messsage Length
