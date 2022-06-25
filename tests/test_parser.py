@@ -1,5 +1,3 @@
-import pytest
-
 from enum import Enum
 from dm_storager.protocol.packet_parser import PacketParser
 

@@ -3,7 +3,6 @@ from enum import IntEnum
 
 
 class PacketCode(IntEnum):
-    ERROR_CODE = 0x00
     STATE_CONTROL_CODE = 0x37
     SETTINGS_SET_CODE = 0x13
     ARCHIEVE_DATA_CODE = 0x45
@@ -23,6 +22,7 @@ class ProtocolDesc:
     PREAMBULA: str = "RFLABC"
     HEX_PADDING: int = 6
     ENCODING: str = "cp1251"
+    RECORD_ENCODING: str = "utf8"
     BYTEORDER = "big"
 
 

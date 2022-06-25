@@ -1,19 +1,12 @@
-import csv
-import time
-import datetime
 import os
 
-from csv import reader
-from datetime import date
+from csv import reader as csv_reader, writer as csv_writer
+from datetime import date, datetime
 from pathlib import Path
-from typing import List, Any
 
-from dm_storager.protocol.schema import ArchieveData, ScannerSettings
-from dm_storager.structs import FileFormat
+from dm_storager.protocol.schema import ArchieveData
 
-appStartTime = datetime.datetime.fromtimestamp(time.time()).strftime(
-    "%d-%m-%Y_%H.%M.%S"
-)
+from dm_storager.structs import FileFormat, ScannerInternalSettings
 
 
 class FileWriter(object):
@@ -28,14 +21,14 @@ class FileWriter(object):
     def append_data(
         self,
         archieve_data: ArchieveData,
-        scanner_settings: ScannerSettings,
+        scanner_settings: ScannerInternalSettings,
     ) -> None:
 
         new_row = []
         self._result_table = []
 
         for i in range(archieve_data.records_count):
-            _timestamp = str(datetime.datetime.now())
+            _timestamp = str(datetime.now())
             _product_name = scanner_settings.products[archieve_data.product_id]
             _record = archieve_data.records[i]
 
@@ -52,18 +45,18 @@ class FileWriter(object):
         self._filename = self._get_file_path(self._scanner_id, "csv")
         sh = False
         with open(self._filename, "r") as csv_file:
-            csv_reader = reader(csv_file)
+            reader = csv_reader(csv_file)
             try:
-                header = next(csv_reader)
+                next(reader)
             except StopIteration:
                 sh = True
         if sh:
             with open(self._filename, "a", newline="") as csv_file:
-                writer = csv.writer(csv_file, delimiter=";")
+                writer = csv_writer(csv_file, delimiter=";")
                 writer.writerow(FileWriter.HEADER)
 
         with open(self._filename, "a", newline="") as csv_file:
-            writer = csv.writer(csv_file, delimiter=";")
+            writer = csv_writer(csv_file, delimiter=";")
             writer.writerows(self._result_table)
 
     def _store_txt_data(self) -> None:

@@ -34,7 +34,7 @@ ParsedPacketType = Union[
 
 def _handle_errors(method: Callable):
     @wraps(method)
-    def _impl(self: "PacketParser", *method_args, **method_kwargs):
+    def _impl(self: "PacketParser", *method_args, **method_kwargs) -> ParsedPacketType:
         def handle_error(err: Exception):
             self._logger.error(err)
             self._formatted_raw_msg = self._formatted_raw_msg[:-1]
@@ -69,7 +69,19 @@ class PacketParser:
 
         self._formatted_raw_msg: str = ""
 
-        self._logger = configure_logger("PROTOCOL_PARSER", debug)
+        self._logger = configure_logger("MESSAGE PARSER", debug)
+
+    def extract_scanner_id(self, in_msg: bytes) -> Optional[str]:
+        b_scanner_ID = in_msg[HeaderDesc.SCANNER_ID_POS : HeaderDesc.PACKET_ID_POS]
+        return format_hex_value(b_scanner_ID)
+
+    def extract_packet_code(self, in_msg: bytes) -> Optional[PacketCode]:
+        b_packet_code = in_msg[HeaderDesc.PACKET_CODE_POS :]
+        packet_code = self._parse_int_field(b_packet_code)
+        try:
+            return PacketCode(packet_code)
+        except Exception:
+            return None
 
     @_handle_errors
     def parse_message(self, in_msg: bytes) -> ParsedPacketType:
@@ -114,11 +126,6 @@ class PacketParser:
     def _parse_int_field(self, _slice: bytes) -> int:
         return int.from_bytes(_slice, byteorder=ProtocolDesc.BYTEORDER)
 
-    def _format_byte_string(self, field_name: str, byte_str: bytes) -> str:
-        s_msg = str(repr(binascii.hexlify(byte_str, "-"))[2:-1]).replace("\\x", "")
-
-        return f"\t{field_name}: {s_msg}\n"
-
     def _parse_header(self, msg_header: bytes) -> HeaderPacket:
 
         b_preambula = msg_header[HeaderDesc.PREAMBULA_POS : HeaderDesc.SCANNER_ID_POS]
@@ -137,7 +144,7 @@ class PacketParser:
         try:
             self._formatted_raw_msg += self._format_byte_string("PREAMBULA", _slice)
 
-            preambula = _slice.decode(ProtocolDesc.ENCODING)
+            preambula = _slice.decode(ProtocolDesc.RECORD_ENCODING)
             assert preambula == ProtocolDesc.PREAMBULA
             return preambula
         except Exception:
@@ -225,7 +232,7 @@ class PacketParser:
 
         # PRODUCT ID
         _slice = msg_body[
-            ArchieveDataDesc.PRODUCT_CODE_POS : ArchieveDataDesc.PRODUCT_CODE_POS  # noqa:E501
+            ArchieveDataDesc.PRODUCT_CODE_POS : ArchieveDataDesc.PRODUCT_CODE_POS
             + ArchieveDataDesc.PRODUCT_CODE_LEN
         ]
         try:
@@ -259,7 +266,7 @@ class PacketParser:
         # RECORD COUNT
         try:
             _slice = msg_body[
-                ArchieveDataDesc.RECORDS_COUNT_POS : ArchieveDataDesc.RECORDS_COUNT_POS  # noqa:E501
+                ArchieveDataDesc.RECORDS_COUNT_POS : ArchieveDataDesc.RECORDS_COUNT_POS
                 + ArchieveDataDesc.RECORDS_COUNT_LEN
             ]
             self._formatted_raw_msg += self._format_byte_string("Records Count", _slice)
@@ -315,7 +322,7 @@ class PacketParser:
                 f"Record #{i}", b_record
             )
             try:
-                record = b_record.decode(ProtocolDesc.ENCODING)
+                record = b_record.decode(ProtocolDesc.RECORD_ENCODING)
             except Exception:
                 self._fail_index_start = (
                     HeaderDesc.HEADER_LEN + ArchieveDataDesc.RECORDS_COUNT_POS
@@ -334,3 +341,8 @@ class PacketParser:
             self._header.packet_code,  # type: ignore
             archieve_data,
         )
+
+    def _format_byte_string(self, field_name: str, byte_str: bytes) -> str:
+        s_msg = str(repr(binascii.hexlify(byte_str, "-"))[2:-1]).replace("\\x", "")
+
+        return f"\t{field_name}: {s_msg}\n"

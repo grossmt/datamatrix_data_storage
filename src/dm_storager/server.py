@@ -1,13 +1,13 @@
 import time
 import multiprocessing
 from multiprocessing import Process, Queue
-from typing import Tuple, List, Optional
+from typing import Tuple, Optional
 
 from dm_storager import Config
 from dm_storager.exceptions import BAD_HOST_ADDRESS, BAD_PORT, ServerStop
-from dm_storager.protocol.exceptions import ProtocolMessageError
-from dm_storager.protocol.packet_parser import get_scanner_id
-from dm_storager.protocol.utils import format_bytestring
+
+from dm_storager.protocol.packet_parser import PacketParser
+
 from dm_storager.utils.config_manager import CONFIG_ENABLE_LIST, ConfigManager
 from dm_storager.utils.logger import configure_logger
 
@@ -16,8 +16,6 @@ from dm_storager.server_queue import ServerQueue
 from dm_storager.structs import (
     ClientMessage,
     HandshakeMessage,
-    Scanner,
-    ScannerInfo,
     ScannerInternalSettings,
     ScannerRuntimeSettings,
     ScannerSettings,
@@ -27,14 +25,16 @@ from dm_storager.structs import (
 
 class Server:
     def __init__(self, config_manager: ConfigManager, debug: bool) -> None:
+        self._is_debug = debug
         self._logger = configure_logger("ROOT_SERVER", debug)
         self._queue: Optional[ServerQueue] = None
 
         self._socket_thread_list: ThreadList = {}
 
         self._config_manager = config_manager
-        self._config: Config = self._config_manager.config
+        self._config: Config = self._config_manager.config  # type: ignore
 
+        self._parser = PacketParser(debug)
         self._is_configured = self._configure_server()
 
     @property
@@ -105,12 +105,13 @@ class Server:
             return False
 
         if self.is_scanner_alive(scanner_id):
-            # self._logger.info(f"Applying new settings to scanner id #{scanner_id}...")
             current_setings: ScannerInternalSettings = self._config.scanners[
                 scanner_id
-            ]["settings"]
+            ][
+                "settings"
+            ]  # type: ignore
 
-            self._config.scanners[scanner_id]["runtime"].queue.put(current_setings)
+            self._config.scanners[scanner_id]["runtime"].queue.put(current_setings)  # type: ignore
             return True
 
         self._logger.warning(f"Scanner with id #{scanner_id} is not alive!")
@@ -191,10 +192,7 @@ class Server:
             queue=Queue(),
             process=Process(
                 target=scanner_process,
-                args=(
-                    scanner_id,
-                    self._config.scanners[scanner_id],
-                ),
+                args=(scanner_id, self._config.scanners[scanner_id], self._is_debug),
             ),
             client_socket=handshake_message.client_socket,
         )
@@ -238,19 +236,9 @@ class Server:
         self._logger.debug(
             f"\tClient address:            {client_message.client_ip}:{client_message.client_port}"
         )
-        self._logger.debug(
-            f"\tRaw message: {format_bytestring(client_message.client_message)}"
-        )
 
-        # resolve scanner ID from message
-        try:
-            msg_scanner_id = get_scanner_id(client_message.client_message)
-        except ProtocolMessageError as err:
-            self._logger.error(str(err))
-            return
-        except Exception:
-            self._logger.exception("Unhandled error:")
-
+        msg_scanner_id = self._parser.extract_scanner_id(client_message.client_message)
+        if msg_scanner_id is None:
             return
 
         # Verify match scanner ID and client IPs
@@ -263,9 +251,7 @@ class Server:
             self._logger.error(
                 f"Perhaps bad settings on {self._config_manager.config_path}, check it please."
             )
-            self._logger.error(
-                f"Skipped raw message: {format_bytestring(client_message.client_message)}"
-            )
+            self._logger.error("Skipped this message.")
             return
 
         scanner = self._config.scanners[msg_scanner_id]
@@ -315,7 +301,7 @@ class Server:
         self._logger.debug(f"\tScanner id:          {scanner_id}")
         self._logger.debug(f"\tScanner name:        {name}")
         self._logger.debug(f"\tScanner address:     {address}")
-        self._logger.debug(f"\tScanner products:")
+        self._logger.debug("\tScanner products:")
         for i in range(len(products)):
             self._logger.debug(f"\t\tProduct #{i}: {products[i]}")
         self._logger.debug(f"\tScanner server IP:   {server_ip}")
@@ -332,7 +318,7 @@ class Server:
             client_address (str): IPv4 address of client.
 
         Returns:
-            bool: is client registered.
+            Optional[bool]: scanner ID if registred, else None
         """
         for scanner in self._config.scanners:
             if self._config.scanners[scanner]["info"].address == client_address:  # type: ignore

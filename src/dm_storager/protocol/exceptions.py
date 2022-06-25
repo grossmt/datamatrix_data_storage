@@ -13,7 +13,7 @@ class TooShortMessage(ProtocolMessageError):
     def __init__(self, expected_len: Optional[int], _slice: bytes) -> None:
         if expected_len:
             super().__init__(
-                reason=f"Too short message (expected len = {expected_len}, given len = {len(_slice)})",
+                reason=f"Too short message (expected len = {expected_len}, given len = {len(_slice)})",  # noqa:E501
                 msg=_slice,
             )
         else:
