@@ -39,7 +39,7 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter(
-            "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
+            "%(asctime)s : %(name)-12s : %(levelname)-8s %(message)s",  # noqa: WPS323
         ),
     )
 
@@ -53,7 +53,7 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
 
     file_handler.setFormatter(
         logging.Formatter(
-            "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",  # noqa: WPS323
+            "%(asctime)s : %(name)-12s : %(levelname)-8s %(message)s",  # noqa: WPS323
         ),
     )
 
