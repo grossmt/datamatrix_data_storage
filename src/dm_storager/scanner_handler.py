@@ -36,7 +36,7 @@ class ScannerHandler:
     PING_TIMEOUT = 10
     PRODUCT_LIST_SIZE = 6
 
-    def __init__(self, scanner: Scanner, is_debug: bool = True) -> None:
+    def __init__(self, scanner: Scanner, is_debug: bool = False) -> None:
 
         # Extract objects from scanner class
         self._scanner_id = scanner.scanner_id
@@ -48,7 +48,7 @@ class ScannerHandler:
 
         # Local objects
         self._scanner_file_writer = FileWriter(self._scanner_id, FileFormat.TXT)
-        self._logger = configure_logger(f"Scanner #{self._scanner_id}", True)
+        self._logger = configure_logger(f"Scanner #{self._scanner_id}", is_debug)
         self._packet_builder = PacketBuilder(is_debug)
         self._packet_parser = PacketParser(is_debug)
 
@@ -68,7 +68,7 @@ class ScannerHandler:
         """Runs scanner process in loop.
         Loop runs while scanner is alive.
         """
-        self._logger.debug(f"Start of process of {self._info.name}")
+        self._logger.info(f"Start of process of {self._info.name}")
 
         self._loop.run_until_complete(
             asyncio.gather(
@@ -143,31 +143,30 @@ class ScannerHandler:
                     self._apply_new_scanner_settings(message)
                     continue
 
-                packet = self._packet_parser.parse_message(message)
-                if isinstance(packet, ScannerControlResponse):
-                    self._handle_state_control_response(packet)
-                if isinstance(packet, SettingsSetResponse):
-                    self._handle_settings_set_response(packet)
-                if isinstance(packet, ArchieveDataRequest):
-                    self._handle_archieve_request(packet)
+                packet_code = self._packet_parser.extract_packet_code(message)
 
-                    # packet_code = self._packet_parser.extract_packet_code(message)
-
-                    # if packet_code == PacketCode.STATE_CONTROL_CODE:
-                    #     self._handle_state_control_response(message)
-                    # elif packet_code == PacketCode.SETTINGS_SET_CODE:
-                    #     self._handle_settings_set_response(message)
-                    # elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
-                    #     self._handle_archieve_request(message)
-                    # else:
-                    #     pass
-                    #     # got bad packet code
+                if packet_code == PacketCode.STATE_CONTROL_CODE:
+                    self._handle_state_control_response(message)
+                elif packet_code == PacketCode.SETTINGS_SET_CODE:
+                    self._handle_settings_set_response(message)
+                elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
+                    self._handle_archieve_request(message)
+                else:
+                    self._logger.error("Got unexpected Packet code.")
+                    skipped_message = self._packet_parser.format_byte_string(
+                        "Skipped message", message
+                    )
+                    self._logger.error(skipped_message)
 
             await asyncio.sleep(0.5)
 
-    def _handle_state_control_response(self, packet: ScannerControlResponse):
+    def _handle_state_control_response(self, message: bytes):
         self._received_ping = True
         self._last_packet_timestamp = datetime.now()
+
+        packet = self._packet_parser.parse_message(message)
+        if not isinstance(packet, ScannerControlResponse):
+            return
 
         if packet.packet_ID == self._current_packet_id:
             self._current_packet_id += 1
@@ -177,9 +176,14 @@ class ScannerHandler:
         else:
             self._logger.warning("Received packet id did not match to send packet id")
 
-    def _handle_settings_set_response(self, packet: SettingsSetResponse):
+    def _handle_settings_set_response(self, message: bytes):
+
         self._received_ping = True
         self._last_packet_timestamp = datetime.now()
+
+        packet = self._packet_parser.parse_message(message)
+        if not isinstance(packet, SettingsSetResponse):
+            return
 
         if packet.packet_ID != self._current_packet_id:
             self._logger.warning("Response packet id does not match to sent packet id!")
@@ -208,7 +212,7 @@ class ScannerHandler:
                 f"An error on scanner settings applying occurs: {packet.response_code}"
             )
 
-    def _handle_archieve_request(self, packet: ArchieveDataRequest):
+    def _handle_archieve_request(self, message: bytes):
         self._received_ping = True
         self._last_packet_timestamp = datetime.now()
 
@@ -219,6 +223,13 @@ class ScannerHandler:
             packet_code=PacketCode.ARCHIEVE_DATA_CODE,
             response_code=ResponseCode.ERROR,
         )
+
+        packet = self._packet_parser.parse_message(message)
+        if not isinstance(packet, ArchieveDataRequest):
+            self._logger.error("Archieve data is not accepted. Sending error ticket.")
+            b_response_packet = self._packet_builder.build_packet(response_packet)
+            self._socket.send(b_response_packet)
+            return
 
         try:
             self._scanner_file_writer.append_data(
@@ -231,6 +242,7 @@ class ScannerHandler:
             self._socket.send(b_response_packet)
             return
 
+        self._logger.info("Archieve data is accepted. Sending success ticket.")
         response_packet.response_code = ResponseCode.SUCCSESS
         b_response_packet = self._packet_builder.build_packet(response_packet)
         self._socket.send(b_response_packet)
