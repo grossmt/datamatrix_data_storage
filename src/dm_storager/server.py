@@ -239,6 +239,11 @@ class Server:
 
         msg_scanner_id = self._parser.extract_scanner_id(client_message.client_message)
         if msg_scanner_id is None:
+            self._logger.error("Failed to get scanner ID from message")
+            skipped_message = self._parser.format_byte_string(
+                "Skipped message", client_message.client_message
+            )
+            self._logger.error(skipped_message)
             return
 
         # Verify match scanner ID and client IPs
@@ -246,12 +251,16 @@ class Server:
             correct_id = self._is_client_registered(client_message.client_ip)
 
             self._logger.error(
-                f"Client with address {client_message.client_ip} is registred, but has another ID: {correct_id}"
+                f"Scanner with address {client_message.client_ip} is registred, but has another ID: {correct_id}"
             )
+            self._logger.error(f"Parsed ID: {msg_scanner_id}")
             self._logger.error(
                 f"Perhaps bad settings on {self._config_manager.config_path}, check it please."
             )
-            self._logger.error("Skipped this message.")
+            skipped_message = self._parser.format_byte_string(
+                "Skipped message", client_message.client_message
+            )
+            self._logger.error(skipped_message)
             return
 
         scanner = self._config.scanners[msg_scanner_id]
