@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from socket import socket
 from multiprocessing import Process, Queue
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any, Tuple
 from pydantic import BaseModel, conlist
 from threading import Thread
 
@@ -14,8 +14,8 @@ PropertyName = str
 
 
 class FileFormat(StrEnum):
-    TXT = auto()
-    CSV = auto()
+    TXT = "TXT"
+    CSV = "CSV"
 
 
 class NetworkSettings(BaseModel):
@@ -31,8 +31,8 @@ class ScannerInfo(BaseModel):
     name: str
     description: Optional[str]
     address: str
+    update_settings_on_connect: Optional[str]
     # data_format: Optional[FileFormat]
-    # update_setttings_on_connect: bool
 
 
 class ScannerInternalSettings(BaseModel):

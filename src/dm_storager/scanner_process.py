@@ -10,9 +10,9 @@ def scanner_process(
     # Serialize dict item to dataclass
     scanner = Scanner(
         scanner_id=scanner_id,
-        info=scanner_dict["info"],
-        settings=scanner_dict["settings"],
-        runtime=scanner_dict["runtime"],
+        info=scanner_dict["info"],  # type: ignore
+        settings=scanner_dict["settings"],  # type: ignore
+        runtime=scanner_dict["runtime"],  # type: ignore
     )
 
     scanner_handler = ScannerHandler(scanner, is_debug)

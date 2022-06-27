@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from dm_storager.protocol.const import PacketCode, PRODUCT_COUNT
 from typing import List, Annotated
+
+from dm_storager.protocol.const import PacketCode, ScannerSettingsDesc
 
 
 @dataclass
@@ -23,7 +24,7 @@ class ScannerControlResponse(StateControlRequest):
 
 @dataclass
 class ScannerSettings:
-    products: Annotated[List[str], PRODUCT_COUNT]
+    products: Annotated[List[str], ScannerSettingsDesc.PRODUCT_COUNT]
     server_ip: str
     server_port: int
     gateway_ip: str
@@ -44,10 +45,10 @@ class SettingsSetResponse(HeaderPacket):
 
 @dataclass
 class ArchieveData:
-    records_count: int
-    record_len: int
     product_id: int
-    records: List[str]
+    message_len: int
+    records_count: int
+    records: List[bytes]
 
 
 @dataclass

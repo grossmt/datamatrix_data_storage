@@ -1,17 +1,14 @@
 import asyncio
-
+from socket import socket
 from multiprocessing import Queue
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from dm_storager.protocol.const import (
-    PACKET_ID_LEN,
-    PREAMBULA,
+    ProtocolDesc,
+    HeaderDesc,
     PacketCode,
     ResponseCode,
 )
-from dm_storager.protocol.exceptions import ProtocolMessageError
-from dm_storager.protocol.utils import format_bytestring
-
 from dm_storager.structs import (
     FileFormat,
     Scanner,
@@ -19,12 +16,17 @@ from dm_storager.structs import (
 )
 from dm_storager.file_writer import FileWriter
 from dm_storager.utils.logger import configure_logger
-from dm_storager.protocol.packet_builer import build_packet
-from dm_storager.protocol.packet_parser import get_packet_code, parse_input_message
+from dm_storager.protocol.packet_builer import PacketBuilder
+from dm_storager.protocol.packet_parser import PacketParser
+
+
 from dm_storager.protocol.schema import (
-    SettingsSetRequest,
     StateControlRequest,
+    SettingsSetRequest,
     ArchieveDataResponse,
+    ScannerControlResponse,
+    SettingsSetResponse,
+    ArchieveDataRequest,
 )
 
 
@@ -34,28 +36,29 @@ class ScannerHandler:
     PING_TIMEOUT = 10
     PRODUCT_LIST_SIZE = 6
 
-    def __init__(self, scanner: Scanner, is_debug: bool = True) -> None:
+    def __init__(self, scanner: Scanner, is_debug: bool = False) -> None:
 
+        # Extract objects from scanner class
         self._scanner_id = scanner.scanner_id
         self._info = scanner.info
         self._scanner_settings: ScannerInternalSettings = scanner.settings
-        self._queue: Queue = scanner.runtime.queue
-        self._socket = scanner.runtime.client_socket
+        self._queue: Queue = scanner.runtime.queue  # type: ignore
+        self._socket: socket = scanner.runtime.client_socket  # type: ignore
         self._port = scanner.runtime.port
 
+        # Local objects
         self._scanner_file_writer = FileWriter(self._scanner_id, FileFormat.TXT)
-        self._logger = configure_logger(f"Scanner #{self._scanner_id}", True)
+        self._logger = configure_logger(f"Scanner #{self._scanner_id}", is_debug)
+        self._packet_builder = PacketBuilder(is_debug)
+        self._packet_parser = PacketParser(is_debug)
 
-        self._control_packet_id: int = 0
-        self._settings_packet_id: int = 0
-        self._archieve_data_packet_id: int = 0
-
+        # Runtime vars
+        self._current_packet_id: int = 0
         self._is_alive: bool = True
         self._received_ping: bool = False
+        self._last_packet_timestamp = datetime.now()
 
         self._loop = asyncio.get_event_loop()
-
-        self._last_packet_timestamp = datetime.now()
 
     @property
     def is_alive(self) -> bool:
@@ -65,7 +68,7 @@ class ScannerHandler:
         """Runs scanner process in loop.
         Loop runs while scanner is alive.
         """
-        self._logger.debug(f"Start of process of {self._info.name}")
+        self._logger.info(f"Start of process of {self._info.name}")
 
         self._loop.run_until_complete(
             asyncio.gather(
@@ -94,19 +97,18 @@ class ScannerHandler:
                 continue
 
             self._logger.debug(
-                f"Sending ping packet #{self._control_packet_id} to scanner"
+                f"Sending ping packet #{self._current_packet_id} to scanner"
             )
             control_packet = StateControlRequest(
-                PREAMBULA,
+                ProtocolDesc.PREAMBULA,
                 self._scanner_id,
-                self._control_packet_id,
+                self._current_packet_id,
                 PacketCode.STATE_CONTROL_CODE,
                 reserved=0,
             )
 
-            bytes_packet = build_packet(control_packet)
+            bytes_packet = self._packet_builder.build_packet(control_packet)
 
-            self._logger.debug(f"Raw message: {format_bytestring(bytes_packet)}")
             try:
                 self._socket.send(bytes_packet)
             except Exception as ex:
@@ -139,26 +141,22 @@ class ScannerHandler:
 
                 if isinstance(message, ScannerInternalSettings):
                     self._apply_new_scanner_settings(message)
+                    continue
 
-                elif isinstance(message, bytes):
+                packet_code = self._packet_parser.extract_packet_code(message)
 
-                    try:
-                        packet_code = get_packet_code(message)
-                    except ProtocolMessageError as ex:
-                        self._logger.error(ex)
-                        return
-                    except Exception as ex:
-                        self._logger.exception(ex)
-                        return
-
-                    if packet_code == PacketCode.STATE_CONTROL_CODE:
-                        self._handle_state_control_response(message)
-                    elif packet_code == PacketCode.SETTINGS_SET_CODE:
-                        self._handle_settings_set_response(message)
-                    elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
-                        self._handle_archieve_request(message)
-                    else:
-                        self._logger.error(f"")
+                if packet_code == PacketCode.STATE_CONTROL_CODE:
+                    self._handle_state_control_response(message)
+                elif packet_code == PacketCode.SETTINGS_SET_CODE:
+                    self._handle_settings_set_response(message)
+                elif packet_code == PacketCode.ARCHIEVE_DATA_CODE:
+                    self._handle_archieve_request(message)
+                else:
+                    self._logger.error("Got unexpected Packet code.")
+                    skipped_message = self._packet_parser.format_byte_string(
+                        "Skipped message", message
+                    )
+                    self._logger.error(skipped_message)
 
             await asyncio.sleep(0.5)
 
@@ -166,47 +164,37 @@ class ScannerHandler:
         self._received_ping = True
         self._last_packet_timestamp = datetime.now()
 
-        try:
-            parsed_packet = parse_input_message(message)
-        except ProtocolMessageError as ex:
-            self._logger.error(ex)
-            return
-        except Exception as ex:
-            self._logger.exception(ex)
+        packet = self._packet_parser.parse_message(message)
+        if not isinstance(packet, ScannerControlResponse):
             return
 
-        if parsed_packet.packet_ID == self._control_packet_id:  # type: ignore
-            self._control_packet_id += 1
-            self._control_packet_id %= 2 ** (PACKET_ID_LEN * 2)
+        if packet.packet_ID == self._current_packet_id:
+            self._current_packet_id += 1
+            self._current_packet_id %= 2 ** (HeaderDesc.PACKET_ID_LEN * 2)
             self._is_alive = True
             self._logger.info("State control packet accepted")
-
         else:
             self._logger.warning("Received packet id did not match to send packet id")
 
     def _handle_settings_set_response(self, message: bytes):
+
         self._received_ping = True
         self._last_packet_timestamp = datetime.now()
 
-        try:
-            parsed_packet = parse_input_message(message)
-        except ProtocolMessageError as ex:
-            self._logger.error(ex)
-            return
-        except Exception as ex:
-            self._logger.exception(ex)
+        packet = self._packet_parser.parse_message(message)
+        if not isinstance(packet, SettingsSetResponse):
             return
 
-        if parsed_packet.packet_ID != self._settings_packet_id:  # type: ignore
-            self._logger.error(f"Response packet id does not match to sent packet id!")
-            self._logger.error(f"\tSent packet id: {self._settings_packet_id}")
-            self._logger.error(f"\tReceived packet id: {parsed_packet.packet_ID}")  # type: ignore
+        if packet.packet_ID != self._current_packet_id:
+            self._logger.warning("Response packet id does not match to sent packet id!")
+            self._logger.warning(f"\tSent packet id: {self._current_packet_id}")
+            self._logger.warning(f"\tReceived packet id: {packet.packet_ID}")
             return
 
-        self._settings_packet_id += 1
-        self._settings_packet_id %= 2 ** (PACKET_ID_LEN * 2)
+        self._current_packet_id += 1
+        self._current_packet_id %= 2 ** (HeaderDesc.PACKET_ID_LEN * 2)
 
-        if parsed_packet.response_code == ResponseCode.SUCCSESS:  # type: ignore
+        if packet.response_code == ResponseCode.SUCCSESS:
             self._logger.info("Settings were succesfully applied!")
 
             self._logger.debug("New scanner settings:")
@@ -221,7 +209,7 @@ class ScannerHandler:
             self._logger.debug(f"\tNetmask:      {self._scanner_settings.server_ip}")
         else:
             self._logger.error(
-                f"An error on scanner settings applying occurs: {parsed_packet.response_code}"  # type: ignore
+                f"An error on scanner settings applying occurs: {packet.response_code}"
             )
 
     def _handle_archieve_request(self, message: bytes):
@@ -229,39 +217,38 @@ class ScannerHandler:
         self._last_packet_timestamp = datetime.now()
 
         response_packet = ArchieveDataResponse(
-            PREAMBULA,
+            ProtocolDesc.PREAMBULA,
             self._scanner_id,
-            self._archieve_data_packet_id,
+            self._current_packet_id,
             packet_code=PacketCode.ARCHIEVE_DATA_CODE,
             response_code=ResponseCode.ERROR,
         )
 
-        try:
-            parsed_packet = parse_input_message(message)
-        except ProtocolMessageError as ex:
-            self._logger.error(ex)
-            b_response_packet = build_packet(response_packet)
-            self._socket.send(b_response_packet)
-            return
-        except Exception as ex:
-            self._logger.exception(ex)
-            return
-        finally:
-            self._archieve_data_packet_id += 1
-            self._archieve_data_packet_id %= 2 ** (PACKET_ID_LEN * 2)
-
-        try:
-            self._scanner_file_writer.append_data(parsed_packet.archieve_data, self._scanner_settings)  # type: ignore
-        except Exception as ex:
-            self._logger.error("Storing to CSV Error:")
-            self._logger.error(ex)
-            b_response_packet = build_packet(response_packet)
+        packet = self._packet_parser.parse_message(message)
+        if not isinstance(packet, ArchieveDataRequest):
+            self._logger.error("Archieve data is not accepted. Sending error ticket.")
+            b_response_packet = self._packet_builder.build_packet(response_packet)
             self._socket.send(b_response_packet)
             return
 
+        try:
+            self._scanner_file_writer.append_data(
+                packet.archieve_data, self._scanner_settings
+            )
+        except Exception as ex:
+            self._logger.error("Storing data to File Error:")
+            self._logger.error(ex)
+            b_response_packet = self._packet_builder.build_packet(response_packet)
+            self._socket.send(b_response_packet)
+            return
+
+        self._logger.info("Archieve data is accepted. Sending success ticket.")
         response_packet.response_code = ResponseCode.SUCCSESS
-        b_response_packet = build_packet(response_packet)
+        b_response_packet = self._packet_builder.build_packet(response_packet)
         self._socket.send(b_response_packet)
+
+        self._current_packet_id += 1
+        self._current_packet_id %= 2 ** (HeaderDesc.PACKET_ID_LEN * 2)
 
     def _apply_new_scanner_settings(
         self, new_settings: ScannerInternalSettings
@@ -288,20 +275,19 @@ class ScannerHandler:
         self._logger.info("Sending new settings to scannner...")
 
         settings_packet = SettingsSetRequest(
-            preambula=PREAMBULA,
+            preambula=ProtocolDesc.PREAMBULA,
             scanner_ID=self._scanner_id,
-            packet_ID=self._settings_packet_id,
+            packet_ID=self._current_packet_id,
             packet_code=PacketCode.SETTINGS_SET_CODE,
             settings=self._scanner_settings,  # type: ignore
             reserved=0,
         )
 
-        bytes_packet = build_packet(settings_packet)
-        self._logger.debug(f"Raw message: {format_bytestring(bytes_packet)}")
+        bytes_packet = self._packet_builder.build_packet(settings_packet)
         try:
             self._socket.send(bytes_packet)
         except Exception as ex:
             self._logger.error("New settings were not applided to scanner. Reason:")
-            self._logger.exception(ex)
+            self._logger.error(ex)
         else:
             self._logger.debug("Waiting for response from scanner...")

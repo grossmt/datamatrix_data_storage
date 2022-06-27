@@ -41,9 +41,9 @@ log = logging.getLogger("app_freezer")
 class AppConsts(object):
     """Consts."""
 
-    ICON_PATH: str = "resources/icon.ico"
+    ICON_PATH: str = "resources/favicon.ico"
     # VERSION: str = get_version("src/digitalizer/__init__.py")
-    VERSION: str = "0.1.1"
+    VERSION: str = "0.1.3"
     # NAME: str = get_project_name("src/digitalizer/__init__.py")
     NAME: str = "DM_Data_Storager"
 
