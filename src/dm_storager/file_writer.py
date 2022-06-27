@@ -1,4 +1,5 @@
 import os
+import pickle
 
 from csv import reader as csv_reader, writer as csv_writer
 from datetime import date, datetime
@@ -62,10 +63,11 @@ class FileWriter(object):
     def _store_txt_data(self) -> None:
         self._filename = self._get_file_path(self._scanner_id, "txt")
 
-        with open(self._filename, "a", newline="") as txt_file:
+        with open(self._filename, "ab") as txt_file:
             for line in self._result_table:
 
-                txt_file.write(line[2] + "\n")
+                # txt_file.write(line[2] + "\n")
+                pickle.dump(line[2], txt_file)
 
     def _get_file_path(self, scanner_id: str, file_format: str) -> Path:
         data_dir = Path.cwd() / "saved_data"

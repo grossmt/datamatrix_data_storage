@@ -48,7 +48,7 @@ class ArchieveData:
     product_id: int
     message_len: int
     records_count: int
-    records: List[str]
+    records: List[bytes]
 
 
 @dataclass

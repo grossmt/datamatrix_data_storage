@@ -41,7 +41,7 @@ def _handle_errors(method: Callable):
             if self._formatted_raw_msg:
                 self._logger.debug(f"Parsed message: \n{self._formatted_raw_msg}")
 
-            formatted_raw_msg = self._format_byte_string(
+            formatted_raw_msg = self.format_byte_string(
                 "", self._msg[self._fail_index_start :]
             )[3:-1]
 
@@ -76,7 +76,10 @@ class PacketParser:
         return format_hex_value(b_scanner_ID)
 
     def extract_packet_code(self, in_msg: bytes) -> Optional[PacketCode]:
-        b_packet_code = in_msg[HeaderDesc.PACKET_CODE_POS :]
+        b_packet_code = in_msg[
+            HeaderDesc.PACKET_CODE_POS : HeaderDesc.PACKET_CODE_POS
+            + HeaderDesc.PACKET_CODE_LEN
+        ]
         packet_code = self._parse_int_field(b_packet_code)
         try:
             return PacketCode(packet_code)
@@ -142,7 +145,7 @@ class PacketParser:
 
     def _validate_preambula(self, _slice: bytes) -> str:
         try:
-            self._formatted_raw_msg += self._format_byte_string("PREAMBULA", _slice)
+            self._formatted_raw_msg += self.format_byte_string("PREAMBULA", _slice)
 
             preambula = _slice.decode(ProtocolDesc.RECORD_ENCODING)
             assert preambula == ProtocolDesc.PREAMBULA
@@ -153,7 +156,7 @@ class PacketParser:
 
     def _validate_scanner_id(self, _slice: bytes) -> str:
         try:
-            self._formatted_raw_msg += self._format_byte_string("SCANNER ID", _slice)
+            self._formatted_raw_msg += self.format_byte_string("SCANNER ID", _slice)
             return format_hex_value(_slice)  # type: ignore
         except Exception:
             self._fail_index_start = (
@@ -163,7 +166,7 @@ class PacketParser:
 
     def _validate_packet_id(self, _slice: bytes) -> int:
         try:
-            self._formatted_raw_msg += self._format_byte_string("PACKET ID", _slice)
+            self._formatted_raw_msg += self.format_byte_string("PACKET ID", _slice)
             return self._parse_int_field(_slice)
         except Exception:
             self._fail_index_start = HeaderDesc.PACKET_ID_POS + HeaderDesc.PACKET_ID_LEN
@@ -171,7 +174,7 @@ class PacketParser:
 
     def _validate_packet_code(self, _slice: bytes) -> PacketCode:
         try:
-            self._formatted_raw_msg += self._format_byte_string("PACKET CODE", _slice)
+            self._formatted_raw_msg += self.format_byte_string("PACKET CODE", _slice)
             packet_code = self._parse_int_field(_slice)
             assert PacketCode.has_value(packet_code) is True
             return packet_code  # type: ignore
@@ -186,7 +189,7 @@ class PacketParser:
     ) -> ScannerControlResponse:
 
         try:
-            self._formatted_raw_msg += self._format_byte_string("RESERVED", msg_body)
+            self._formatted_raw_msg += self.format_byte_string("RESERVED", msg_body)
 
             reserved = self._parse_int_field(msg_body)
             assert len(msg_body) == StateControlDesc.RESERVED_LEN
@@ -212,7 +215,7 @@ class PacketParser:
             assert len(msg_body) == ScannerSettingsDesc.RESPONSE_CODE_LEN
             response_code = self._parse_int_field(msg_body)
 
-            self._formatted_raw_msg += self._format_byte_string(
+            self._formatted_raw_msg += self.format_byte_string(
                 "RESPONSE CODE", msg_body
             )
 
@@ -236,7 +239,7 @@ class PacketParser:
             + ArchieveDataDesc.PRODUCT_CODE_LEN
         ]
         try:
-            self._formatted_raw_msg += self._format_byte_string("Product ID", _slice)
+            self._formatted_raw_msg += self.format_byte_string("Product ID", _slice)
             product_id = self._parse_int_field(_slice)
             assert product_id < ScannerSettingsDesc.PRODUCT_COUNT
         except Exception:
@@ -253,7 +256,7 @@ class PacketParser:
             + ArchieveDataDesc.MSG_SIZE_LEN
         ]
         try:
-            self._formatted_raw_msg += self._format_byte_string("Message Size", _slice)
+            self._formatted_raw_msg += self.format_byte_string("Message Size", _slice)
             msg_len = self._parse_int_field(_slice)
         except Exception:
             self._fail_index_start = (
@@ -269,7 +272,7 @@ class PacketParser:
                 ArchieveDataDesc.RECORDS_COUNT_POS : ArchieveDataDesc.RECORDS_COUNT_POS
                 + ArchieveDataDesc.RECORDS_COUNT_LEN
             ]
-            self._formatted_raw_msg += self._format_byte_string("Records Count", _slice)
+            self._formatted_raw_msg += self.format_byte_string("Records Count", _slice)
 
             records_count = self._parse_int_field(_slice)
         except Exception:
@@ -295,13 +298,13 @@ class PacketParser:
         self._fail_index_start = (
             HeaderDesc.HEADER_LEN + ArchieveDataDesc.RECORDS_START_POS
         )
-        records: List[str] = []
+        records: List[bytes] = []
 
         for i in range(records_count):
 
             try:
                 _slice = msg_body[: ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN]
-                self._formatted_raw_msg += self._format_byte_string(
+                self._formatted_raw_msg += self.format_byte_string(
                     f"Record #{i} LENGTH", _slice
                 )
 
@@ -320,11 +323,9 @@ class PacketParser:
 
             # extract record
             b_record = msg_body[:record_len]
-            self._formatted_raw_msg += self._format_byte_string(
-                f"Record #{i}", b_record
-            )
+            self._formatted_raw_msg += self.format_byte_string(f"Record #{i}", b_record)
             try:
-                record = b_record.decode(ProtocolDesc.RECORD_ENCODING)
+                record = b_record
             except Exception:
                 raise InvalidField(f"Archieve data record #{i}", b_record)
             records.append(record)
@@ -342,7 +343,7 @@ class PacketParser:
             archieve_data,
         )
 
-    def _format_byte_string(self, field_name: str, byte_str: bytes) -> str:
+    def format_byte_string(self, field_name: str, byte_str: bytes) -> str:
         s_msg = str(repr(binascii.hexlify(byte_str, "-"))[2:-1]).replace("\\x", "")
 
         return f"\t{field_name}: {s_msg}\n"
