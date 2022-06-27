@@ -27,6 +27,9 @@ class TestMessages(Enum):
     BAD_ARCHIEVE_DATA_MESSAGE_SIZE_MESSAGE = bytes(
         b"""RFLABC\x00\x01\x00\x01\x45\x01\x00\x14\x02\x08\x01\x23\x45\x67\x89\x74\x87\x0D\x09\xAB\xCD\xEF\xBD\x34\x45\x73\x14\x0D"""
     )
+    BAD_ARCHIEVE_DATA_SYMBOL_MESSAGE = bytes(
+        b"""RFLABC\x00\x01\x00\x01\x45\x01\x00\x13\x02\x08\x01\x23\x45\x67\x98\x74\x87\x0D\x09\xAB\xCD\xEF\xBD\x34\x45\x98\x14\x0D"""
+    )
 
 
 parser = PacketParser(debug=True)
@@ -116,6 +119,14 @@ def test_parse_bad_archieve_data_product_id_message():
 def test_parse_bad_arcieve_data_message_size_message():
     # given
     test_msg = TestMessages.BAD_ARCHIEVE_DATA_MESSAGE_SIZE_MESSAGE.value
+    # when
+    parsed_packet = parser.parse_message(test_msg)
+    # then
+    assert parsed_packet is None
+
+def test_parse_bad_arcieve_data_symbol_message():
+    # given
+    test_msg = TestMessages.BAD_ARCHIEVE_DATA_SYMBOL_MESSAGE.value
     # when
     parsed_packet = parser.parse_message(test_msg)
     # then

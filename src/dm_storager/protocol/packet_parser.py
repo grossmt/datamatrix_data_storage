@@ -292,6 +292,9 @@ class PacketParser:
             )
             raise TooShortMessage(expected_len=msg_len, _slice=msg_body)
 
+        self._fail_index_start = (
+            HeaderDesc.HEADER_LEN + ArchieveDataDesc.RECORDS_START_POS
+        )
         records: List[str] = []
 
         for i in range(records_count):
@@ -305,13 +308,12 @@ class PacketParser:
                 record_len = self._parse_int_field(_slice)
                 assert record_len > 0
             except Exception:
-                self._fail_index_start = (
-                    HeaderDesc.HEADER_LEN + ArchieveDataDesc.RECORDS_COUNT_POS
-                )
                 raise InvalidField(
                     f"Record #{i} length",
                     msg_body[: ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN],
                 )
+
+            self._fail_index_start += ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN
 
             # drop len
             msg_body = msg_body[ArchieveDataDesc.SINGLE_RECORD_SIZE_LEN :]
@@ -324,13 +326,11 @@ class PacketParser:
             try:
                 record = b_record.decode(ProtocolDesc.RECORD_ENCODING)
             except Exception:
-                self._fail_index_start = (
-                    HeaderDesc.HEADER_LEN + ArchieveDataDesc.RECORDS_COUNT_POS
-                )
-                raise InvalidField("Archieve data record", b_record)
+                raise InvalidField(f"Archieve data record #{i}", b_record)
             records.append(record)
 
             msg_body = msg_body[record_len:]
+            self._fail_index_start += record_len
 
         archieve_data = ArchieveData(product_id, msg_len, records_count, records)
 
