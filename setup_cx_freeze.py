@@ -43,7 +43,7 @@ class AppConsts(object):
 
     ICON_PATH: str = "resources/favicon.ico"
     # VERSION: str = get_version("src/digitalizer/__init__.py")
-    VERSION: str = "0.1.3"
+    VERSION: str = "0.2.0"
     # NAME: str = get_project_name("src/digitalizer/__init__.py")
     NAME: str = "DM_Data_Storager"
 
