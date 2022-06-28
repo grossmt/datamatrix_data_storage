@@ -22,6 +22,8 @@ from dm_storager.structs import (
     ThreadList,
 )
 
+from dm_storager.web import run_web_server
+
 
 class Server:
     def __init__(self, config_manager: ConfigManager, debug: bool) -> None:
@@ -37,6 +39,11 @@ class Server:
         self._parser = PacketParser(debug)
         self._is_configured = self._configure_server()
 
+        self._web_page_process = Process(
+            target=run_web_server,
+            args=(self._config.server.host,),
+        )
+
     @property
     def is_configured(self) -> bool:
         return self._is_configured
@@ -51,6 +58,16 @@ class Server:
         return (self._config.server.host, self._config.server.port)
 
     def run_server(self) -> None:
+
+        try:
+            self._web_page_process.start()
+        except Exception:
+            self._logger.error("Failed to start web page!")
+        else:
+            self._logger.info(
+                f"Web page is started at http://{self._config.server.host} Ctrl+Click to open."
+            )
+
         try:
             while True:
 
@@ -76,6 +93,8 @@ class Server:
         self._queue.server.is_running = False  # type: ignore
         self._queue.server.shutdown()  # type: ignore
         self._queue.server.server_close()  # type: ignore
+
+        self._web_page_process.terminate()
 
     def is_scanner_alive(self, scanner_id: str) -> bool:
         """Check is scanner alive.

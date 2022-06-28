@@ -11,6 +11,31 @@ LOG_FILE_MAX_SIZE = 256 * kB  # noqa: WPS432
 
 BACKUP_FILES_COUNT = 10
 
+LOG_FORMAT = "%(asctime)s : %(name)-12s : %(levelname)-8s %(message)s"
+
+
+class ColorizedFormatter(logging.Formatter):
+
+    grey = "\x1b[38;20m"
+    green = "\x1b[32;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+
+    FORMATS = {
+        logging.DEBUG: grey + LOG_FORMAT + reset,
+        logging.INFO: green + LOG_FORMAT + reset,
+        logging.WARNING: yellow + LOG_FORMAT + reset,
+        logging.ERROR: red + LOG_FORMAT + reset,
+        logging.CRITICAL: bold_red + LOG_FORMAT + reset,
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
 
 def get_root_logger(is_debug: bool = False) -> logging.Logger:
     """Creates root logger with console and file output.
@@ -37,11 +62,7 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
 
     # Setup stderr console handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s : %(name)-12s : %(levelname)-8s %(message)s",  # noqa: WPS323
-        ),
-    )
+    console_handler.setFormatter(ColorizedFormatter())
 
     # Setup file handler
     file_handler = ConcurrentRotatingFileHandler(
@@ -52,9 +73,7 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
     )
 
     file_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s : %(name)-12s : %(levelname)-8s %(message)s",  # noqa: WPS323
-        ),
+        logging.Formatter(LOG_FORMAT),
     )
 
     root.addHandler(file_handler)
