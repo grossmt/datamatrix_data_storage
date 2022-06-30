@@ -23,7 +23,7 @@ PacketType = Union[StateControlRequest, SettingsSetRequest, ArchieveDataResponse
 
 class PacketBuilder:
     def __init__(self, debug: bool = False) -> None:
-        self._logger = configure_logger("MESSAGE BUILDER", debug)
+        self._logger = configure_logger("MGS_BUILDER", debug)
         self._formatter_raw_msg: str = ""
 
     def build_packet(self, packet: PacketType) -> bytes:
@@ -40,7 +40,9 @@ class PacketBuilder:
             bytes_pack.extend(self._build_archieve_data_response_body(packet))
 
         self._formatter_raw_msg = self._format_byte_string(bytes_pack)
-        self._logger.debug(f"Formatted raw message:\n\t{self._formatter_raw_msg}")
+        self._logger.debug("Formatted raw message:")
+        self._logger.debug(f"\t{self._formatter_raw_msg}")
+
         return bytes_pack
 
     def _build_header(self, packet: PacketType) -> bytearray:

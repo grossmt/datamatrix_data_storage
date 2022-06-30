@@ -48,7 +48,7 @@ class ScannerHandler:
 
         # Local objects
         self._scanner_file_writer = FileWriter(self._scanner_id, FileFormat.TXT)
-        self._logger = configure_logger(f"Scanner #{self._scanner_id}", is_debug)
+        self._logger = configure_logger(f"SCAN {self._scanner_id}", is_debug)
         self._packet_builder = PacketBuilder(is_debug)
         self._packet_parser = PacketParser(is_debug)
 

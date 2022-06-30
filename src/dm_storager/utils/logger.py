@@ -78,7 +78,7 @@ def get_root_logger(is_debug: bool = False) -> logging.Logger:
 
     root.addHandler(file_handler)
     root.addHandler(console_handler)
-    root.name = "SERVER"
+    root.name = "DM_STORAGER"
 
     return root
 

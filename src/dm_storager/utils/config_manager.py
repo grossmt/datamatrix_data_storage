@@ -25,7 +25,7 @@ class ConfigManager:
 
     def __init__(self, config_file_path: Path) -> None:
         self._config_path = config_file_path
-        self._logger = configure_logger("CONFIG MANAGER", False)
+        self._logger = configure_logger("CONFIG_MNGR", False)
 
         self._config: Optional[Config] = self.get_config(config_file_path)
 
