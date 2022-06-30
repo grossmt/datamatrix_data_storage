@@ -15,7 +15,7 @@ from setuptools import find_namespace_packages as find_packages
 
 setup(
     name="dm_storage_server",
-    version="0.2.0",
+    version="0.2.1",
     description="Server of datamatrix codes storager",
     author="RFLABC",
     packages=find_packages(where="src"),

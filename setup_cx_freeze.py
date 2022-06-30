@@ -43,12 +43,12 @@ class AppConsts(object):
 
     ICON_PATH: str = "resources/favicon.ico"
     # VERSION: str = get_version("src/digitalizer/__init__.py")
-    VERSION: str = "0.2.0"
+    VERSION: str = "0.2.1"
     # NAME: str = get_project_name("src/digitalizer/__init__.py")
     NAME: str = "DM_Data_Storager"
 
     # INSTALL_DIR: str = ""
-    INSTALL_DIR: str = r"[AppDataFolder]\{0:s}\{1:s}".format("ThirdPin", NAME)
+    INSTALL_DIR: str = r"[AppDataFolder]\{0:s}\{1:s}".format("RFLABC", NAME)
 
     UUID: str = "{00e671de-d5b1-41ed-b6fa-bc7044ff2e7e}"
 
