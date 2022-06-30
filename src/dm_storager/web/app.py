@@ -1,11 +1,9 @@
-import time
-import datetime
 import logging
 
 from flask import Flask, render_template
 from flask import Response
 
-from dm_storager.web.logger import flask_logger
+from dm_storager.web.log_parser import flask_logger
 
 APP = Flask(__name__, static_folder="app/static/", template_folder="app/static/")
 
@@ -23,7 +21,9 @@ def root():
 def log_stream():
     """returns logging information"""
     return Response(
-        flask_logger(), mimetype="text/plain", content_type="text/event-stream"
+        flask_logger(),
+        mimetype="text/plain",
+        content_type="text/event-stream",
     )
 
 

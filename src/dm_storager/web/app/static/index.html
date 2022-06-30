@@ -16,13 +16,18 @@
 
             requester.open('GET', '{{ url_for('log_stream') }}', true);
             requester.send();
+
             setTimeout(function () {
-                if (requester.responseText != output.textContent) {
-                    output.textContent = requester.responseText;
+                if ($(requester.responseText).text() != $('#output').text()) {
+                    $('#output').html("");
+                    output.insertAdjacentHTML("afterbegin", requester.responseText);
                 }
-            }, 2000);
+            }, 1000);
         }
+
+        update_log();
         setInterval(update_log, 1000);
+
     </script>
 </head>
 
@@ -32,7 +37,6 @@
         <div class="logging_window">
             <pre id="output"></pre>
         </div>
-    </div>
 </body>
 
 </html>
