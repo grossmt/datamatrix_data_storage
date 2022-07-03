@@ -6,17 +6,33 @@ https://github.com/pypa/sampleproject
 
 import sys
 import os
-
-# Add current current folder to pythonpath for PEP518 build
-sys.path.insert(0, os.path.dirname(__file__))
+import codecs
+from pathlib import Path
 
 from setuptools import setup
 from setuptools import find_namespace_packages as find_packages
 
+# Add current current folder to pythonpath for PEP518 build
+sys.path.insert(0, os.path.dirname(__file__))
+
+APP_CFG_PATH = Path.cwd() / Path("src") / Path("dm_storager") / Path("__init__.py")
+
+
+def get_parameter(file_path: Path, param_name: str) -> str:
+    with codecs.open(str(file_path), "r", encoding="utf8") as fp:
+        _f = fp.readlines()
+
+    for line in _f:
+        if line.startswith(f"__{param_name}__"):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    raise RuntimeError(f"Unable to find {param_name} string.")
+
+
 setup(
-    name="dm_storage_server",
-    version="0.2.1",
-    description="Server of datamatrix codes storager",
+    name=get_parameter(APP_CFG_PATH, "project_name"),
+    version=get_parameter(APP_CFG_PATH, "version"),
+    description="Datamatrix storager application",
     author="RFLABC",
     packages=find_packages(where="src"),
     package_dir={"": "src"},

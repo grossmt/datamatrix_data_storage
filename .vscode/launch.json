@@ -22,6 +22,17 @@
                 // "--debug"
             ]
             // "justMyCode": false
+        },
+        {
+            "name": "Build MSI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/build_tools/buildapp.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--msi"
+            ]
+            // "justMyCode": false
         }
     ]
 }
