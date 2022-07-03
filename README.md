@@ -1,5 +1,9 @@
 # Datamatrix Storage Server
 
+Приложение для обработки и хранения данных о выпущенных и промаркированных продуктов.
+
+[[_TOC_]]
+
 ## Сервер сбора данных со сканеров на линии выпуска.
 
 Модуль представляет из себя программу,
@@ -23,4 +27,14 @@ API Сервера:
 - is_alive(scanner_id):
 - set_scanner_settings(scanner_settings)
 
-python setup_cx_freeze.py bdist_msi -d built_msi
+
+### MSI сборка
+
+Для сборки *msi* файла, в разделе **Run and Debug** выберете **Build MSI** и нажмите **Start Debug** (либо используйте запуск через **F5**). 
+После чего в проекте по адресу `src\build_tools\build_msi` появится *msi* файл, позволяющий выполнить установку приложения в систему.
+
+*Альтернативный вариант:* находясь в папке `build_tools` выполнить команду
+
+ ```bash
+ python buildapp.py --msi
+ ```
