@@ -5,7 +5,7 @@ from flask import Response
 
 from dm_storager.web.log_parser import flask_logger
 
-APP = Flask(__name__, static_folder="app/static/", template_folder="app/static/")
+APP = Flask(__name__, static_folder="static/", template_folder="templates/")
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.CRITICAL)
@@ -15,6 +15,11 @@ log.setLevel(logging.CRITICAL)
 def root():
     """index page"""
     return render_template("index.html")
+
+
+@APP.route("/logs", methods=["GET"])
+def logs():
+    return render_template("log.html")
 
 
 @APP.route("/log_stream", methods=["GET"])

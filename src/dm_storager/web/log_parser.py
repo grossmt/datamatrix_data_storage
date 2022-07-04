@@ -26,3 +26,4 @@ def flask_logger():
 
     _data = "".join(data)
     yield _data.encode()
+    # yield _data
