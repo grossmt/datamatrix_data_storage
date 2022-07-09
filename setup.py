@@ -15,7 +15,7 @@ from setuptools import find_namespace_packages as find_packages
 # Add current current folder to pythonpath for PEP518 build
 sys.path.insert(0, os.path.dirname(__file__))
 
-APP_CFG_PATH = Path.cwd() / Path("src") / Path("dm_storager") / Path("__init__.py")
+APP_CFG_PATH = Path.cwd() / Path("src") / Path("dm_storager") / Path("__config__.py")
 
 
 def get_parameter(file_path: Path, param_name: str) -> str:

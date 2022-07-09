@@ -20,7 +20,9 @@ class AppConsts(object):
 
     AUTHOR = "RFLABC"
 
-    APP_CFG_PATH = Path.cwd() / Path("src") / Path("dm_storager") / Path("__init__.py")
+    APP_CFG_PATH = (
+        Path.cwd() / Path("src") / Path("dm_storager") / Path("__config__.py")
+    )
 
     VERSION = get_parameter(APP_CFG_PATH, "version")
     NAME = get_parameter(APP_CFG_PATH, "project_name")
