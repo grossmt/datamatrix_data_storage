@@ -4,6 +4,8 @@
         "mhutchie.git-graph",
         "yzhang.markdown-all-in-one",
         "mechatroner.rainbow-csv",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+        "abusaidm.html-snippets",
+        "ms-vscode.hexeditor"
     ]
 }
