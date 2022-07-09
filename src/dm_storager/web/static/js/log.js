@@ -1,6 +1,6 @@
-$(document).ready(
+// $(document).ready(
 
-);
+// );
 
 function update_log() {
     var output = document.getElementById('output');
@@ -17,5 +17,5 @@ function update_log() {
     }, 1000);
 }
 
-update_log();
-setInterval(update_log, 1000);
+// update_log();
+// setInterval(update_log, 1000);

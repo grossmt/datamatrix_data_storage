@@ -13,15 +13,58 @@
 
     <!-- <link rel="stylesheet" type=text/css href="{{ url_for('static', filename='css/custom.css')}}"> -->
     <link rel="stylesheet" type=text/css href="../static/css/main.css">
+    <link rel="stylesheet" type=text/css href="../static/css/test.css">
+
     <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
 </head>
 
-<body id="main">
-    <div class="row">
-        <a href="/logs">
-            Server logs
-        </a>
+<body id="main" class="wy-body-for-nav">
+
+    <div class="wy-grid-for-nav">
+        <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+            <div class="wy-side-scroll">
+                <div class="wy-side-nav-search">
+                    <a href="/index" class="icon">Datamatrix Storager</a>
+                </div>
+
+                <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                    <ul class="current">
+                        <li id="root_link" class="toctree-l1">
+                            <a class="reference internal" href="/">Server info</a>
+                        </li>
+                        <li id="log_link" class="toctree-l1">
+                            <a class="reference internal" href="/logs">Server logs</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+            <div class="wy-nav-content">
+                <div id="main_div" class="document">
+                    {{ DOC_BODY | safe }}
+                </div>
+
+                <footer>
+                    <hr>
+                    <div role="contentinfo">
+                        <p>© Copyright 2022, RFLABC</p>
+                    </div>
+                </footer>
+            </div>
+        </section>
     </div>
+
+    <div class="rst-versions" role="note">
+        <span class="rst-current-version">
+            <span>Version:</span>
+            <span>{{ version }}</span>
+        </span>
+    </div>
+    </div>
+
 </body>
 
 </html>
