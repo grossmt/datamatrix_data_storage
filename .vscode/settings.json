@@ -9,4 +9,8 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "workbench.editorAssociations": {
+        "*.hex": "hexEditor.hexedit",
+        "*.ini": "hexEditor.hexedit"
+    },
 }

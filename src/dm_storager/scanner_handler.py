@@ -40,6 +40,8 @@ class ScannerHandler:
 
         # Extract objects from scanner class
         self._scanner_id = scanner.scanner_id
+        self._scanner_name = scanner.info.name
+
         self._info = scanner.info
         self._scanner_settings: ScannerInternalSettings = scanner.settings
         self._queue: Queue = scanner.runtime.queue  # type: ignore
@@ -47,7 +49,9 @@ class ScannerHandler:
         self._port = scanner.runtime.port
 
         # Local objects
-        self._scanner_file_writer = FileWriter(self._scanner_id, FileFormat.TXT)
+        self._scanner_file_writer = FileWriter(
+            self._scanner_name, self._scanner_id, FileFormat.TXT
+        )
         self._logger = configure_logger(f"SCAN {self._scanner_id}", is_debug)
         self._packet_builder = PacketBuilder(is_debug)
         self._packet_parser = PacketParser(is_debug)
