@@ -3,13 +3,15 @@ from dm_storager.structs import (
     NetworkSettings,
     ScannerInfo,
     ScannerInternalSettings,
-    FileFormat,
 )
+
+from dm_storager.utils.path import default_data_folder
 
 TEMPLATE_CONFIG = Config(
     title="Network settings of server and scanners",
     subtitle="Settings template. Fill it correctly.",
     debug_flag="y",
+    saved_data_path=str(default_data_folder()),
     server=NetworkSettings(host="", port=0),
     scanners={
         "1": {
@@ -18,7 +20,6 @@ TEMPLATE_CONFIG = Config(
                 description="Example scanner with dec integer ID",
                 address="",
                 update_settings_on_connect="yes",
-                # data_format=FileFormat.CSV,
             ),
             "settings": ScannerInternalSettings(
                 gateway_ip="",

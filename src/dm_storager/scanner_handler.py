@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from socket import socket
 from multiprocessing import Queue
 from datetime import datetime
@@ -36,7 +37,12 @@ class ScannerHandler:
     PING_TIMEOUT = 10
     PRODUCT_LIST_SIZE = 6
 
-    def __init__(self, scanner: Scanner, is_debug: bool = False) -> None:
+    def __init__(
+        self,
+        scanner: Scanner,
+        data_path: Path,
+        is_debug: bool = False,
+    ) -> None:
 
         # Extract objects from scanner class
         self._scanner_id = scanner.scanner_id
@@ -50,7 +56,7 @@ class ScannerHandler:
 
         # Local objects
         self._scanner_file_writer = FileWriter(
-            self._scanner_name, self._scanner_id, FileFormat.TXT
+            self._scanner_name, self._scanner_id, FileFormat.TXT, data_folder=data_path
         )
         self._logger = configure_logger(f"SCAN {self._scanner_id}", is_debug)
         self._packet_builder = PacketBuilder(is_debug)

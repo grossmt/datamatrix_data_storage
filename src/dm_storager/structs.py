@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from email.policy import default
 from socket import socket
 from multiprocessing import Process, Queue
 from typing import Dict, Optional, Union, Any, Tuple
@@ -70,6 +71,7 @@ class Config(BaseModel):
     title: str
     subtitle: Optional[str]
     debug_flag: Optional[str]
+    saved_data_path: Optional[str]
     server: NetworkSettings
     scanners: ScannerSettings
 

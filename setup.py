@@ -56,6 +56,7 @@ setup(
         "concurrent-log-handler",
         "flask",
         "loguru",
+        "strenum",
     ],
     extras_require={
         "dev": [

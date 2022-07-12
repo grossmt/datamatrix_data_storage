@@ -28,9 +28,9 @@ class AppBuilder(object):
         self._logger.info(
             f'Creating app "{AppConsts.NAME}" with version {AppConsts.VERSION}...'
         )
-        self._logger.info(
-            f'MSI install path is going to be: "{AppConsts.DEFAULT_INSTALL_DIR}"'
-        )
+        # self._logger.info(
+        #     f'MSI install path is going to be: "{AppConsts.DEFAULT_INSTALL_DIR}"'
+        # )
 
         status, msg = self.build()
         if status is True:

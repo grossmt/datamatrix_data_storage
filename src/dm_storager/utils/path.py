@@ -27,3 +27,8 @@ def default_log_dir() -> Path:
 def default_log_file() -> Path:
     """Return default abs path to log dir."""
     return default_log_dir() / "server_log"
+
+
+def default_data_folder() -> Path:
+    """Return default data folder."""
+    return SCRIPT_PATH / "saved_data"
