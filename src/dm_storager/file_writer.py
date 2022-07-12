@@ -14,11 +14,19 @@ class FileWriter(object):
 
     HEADER = ["Timestamp", "Product Name", "Record"]
 
-    def __init__(self, scanner_name: str, scanner_id: str, file_format: FileFormat):
+    def __init__(
+        self,
+        scanner_name: str,
+        scanner_id: str,
+        file_format: FileFormat,
+        data_folder: Path,
+    ):
         self._scanner_name = scanner_name
         self._scanner_id = scanner_id
         self._result_table = []
         self._file_format = file_format or FileFormat.TXT
+
+        self._data_folder = data_folder
 
     def append_data(
         self,
@@ -68,21 +76,19 @@ class FileWriter(object):
 
         with open(self._filename, "ab") as txt_file:
             for line in self._result_table:
-
-                # txt_file.write(line[2] + "\n")
                 txt_file.write(line[2])
-                # pickle.dump(line[2], txt_file, protocol=0)
 
     def _get_file_path(
         self, scanner_name: str, scanner_id: str, file_format: str
     ) -> Path:
-        data_dir = Path.cwd() / "saved_data"
-        os.makedirs(data_dir, exist_ok=True)
+        # data_dir = Path.cwd() / "saved_data"
+        os.makedirs(self._data_folder, exist_ok=True)
 
         current_date = str(date.today())
 
-        file_path = data_dir / f"scanner_#{scanner_id}.{current_date}.{file_format}"
-        file_path = data_dir / f"{scanner_name}.{current_date}.{file_format}"
+        file_path = (
+            Path(self._data_folder) / f"{scanner_name}.{current_date}.{file_format}"
+        )
 
         open(file_path, "a").close()
         return file_path

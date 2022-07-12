@@ -211,7 +211,12 @@ class Server:
             queue=Queue(),
             process=Process(
                 target=scanner_process,
-                args=(scanner_id, self._config.scanners[scanner_id], self._is_debug),
+                args=(
+                    scanner_id,
+                    self._config.scanners[scanner_id],
+                    self._is_debug,
+                    self._config.saved_data_path,
+                ),
             ),
             client_socket=handshake_message.client_socket,
         )

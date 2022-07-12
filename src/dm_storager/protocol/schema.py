@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Annotated
 
-from dm_storager.protocol.const import PacketCode, ScannerSettingsDesc
+from typing import List
+
+from dm_storager.protocol.const import PacketCode
 
 
 @dataclass
@@ -24,7 +25,7 @@ class ScannerControlResponse(StateControlRequest):
 
 @dataclass
 class ScannerSettings:
-    products: Annotated[List[str], ScannerSettingsDesc.PRODUCT_COUNT]
+    products: List[str]
     server_ip: str
     server_port: int
     gateway_ip: str
