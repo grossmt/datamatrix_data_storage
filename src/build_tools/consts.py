@@ -34,8 +34,8 @@ class AppConsts(object):
         / Path("favicon.ico")
     )
 
-    DEFAULT_INSTALL_DIR = str(Path(r"[AppDataFolder]") / Path(AUTHOR) / Path(NAME))
-    # DEFAULT_INSTALL_DIR = r"[AppDataFolder]\{0:s}\{1:s}".format("RFLABC", NAME)
+    DEFAULT_INSTALL_DIR = str(Path("C:\\") / Path(AUTHOR) / Path(NAME))
+
     UUID: str = "{00e671de-d5b1-41ed-b6fa-bc7044ff2e7e}"
 
 

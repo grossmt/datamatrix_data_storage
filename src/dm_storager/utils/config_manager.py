@@ -8,7 +8,7 @@ from socket import inet_aton as ip_str_to_bytes
 from dm_storager import Config
 from dm_storager.assets import TEMPLATE_CONFIG
 from dm_storager.structs import Scanner, ScannerSettings
-from dm_storager.utils.path import default_settings_path
+from dm_storager.utils.path import default_data_folder, default_settings_path
 from dm_storager.utils.logger import configure_logger
 from dm_storager.utils.network import (
     MIN_PORT_NUMBER,
@@ -132,7 +132,7 @@ class ConfigManager:
         Returns
             bool: is config valid
         """
-        is_valid = True
+        is_valid_id = True
 
         for client_id in config.scanners.copy():
             hex_id = None
@@ -150,21 +150,30 @@ class ConfigManager:
             except KeyError:
                 config.scanners[hex_id] = config.scanners.pop(client_id)
             else:
-                is_valid = False
-                click.echo("Given settings are invalid:")
-                click.echo(f"\tFound dublicate scanner ID: {hex_id}")
+                is_valid_id = False
+                self._logger.error("Given settings are invalid:")
+                self._logger.error(f"\tFound dublicate scanner ID: {hex_id}")
                 continue
 
             # validate scanner address
             try:
                 ip_str_to_bytes(config.scanners[str(hex_id)]["info"].address)
             except OSError:
-                click.echo("Given settings are invalid:")
+                self._logger.error("Given settings are invalid:")
                 ip = config.scanners[str(hex_id)]["info"].address
-                click.echo(f"\tFound wrong IP address: scanner ID: {hex_id}, IP: {ip}")
-                is_valid = False
+                self._logger.error(
+                    f"\tFound wrong IP address: scanner ID: {hex_id}, IP: {ip}"
+                )
+                is_valid_id = False
 
-        return is_valid
+        if config.saved_data_path is None:
+            self._logger.warning("Path to saved data is not specified.")
+            self._logger.warning(f"Data will be saved to {default_data_folder()}")
+            config.saved_data_path = str(default_data_folder())
+
+        is_valid_data_path = self._validate_saved_data_path(config.saved_data_path)
+
+        return is_valid_id and is_valid_data_path
 
     def add_new_scanner(self, scanner: Scanner) -> bool:
         """Add new scanner to active config and saves it to current path.
@@ -304,11 +313,30 @@ class ConfigManager:
         TEMPLATE_CONFIG.scanners["1"]["settings"].server_ip = server_address
         TEMPLATE_CONFIG.scanners["1"]["settings"].server_port = port
 
-        # TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_ip = server_address
-        # TEMPLATE_CONFIG.scanners["0x0001"]["settings"].server_port = port
-
         gateway_ip = server_address.replace(server_address.split(".")[3], "1")
-        # TEMPLATE_CONFIG.scanners["0x0001"]["settings"].gateway_ip = gateway_ip
         TEMPLATE_CONFIG.scanners["1"]["settings"].gateway_ip = gateway_ip
 
         return TEMPLATE_CONFIG
+
+    def _validate_saved_data_path(self, str_data_path: str) -> bool:
+        try:
+            data_path = Path(str_data_path)
+            os.makedirs(data_path, exist_ok=True)
+
+            with open(data_path / "demo.txt", "w") as f:
+                f.write("Test access for directory.")
+
+            os.remove(data_path / "demo.txt")
+        except OSError as ex:
+            self._logger.error(f"Given saved data path is not valid: {str_data_path}")
+            if ex.errno == 13:
+                self._logger.error("Reason: Permission denied.")
+            else:
+                self._logger.error(f"Reason: {str(ex)}")
+            return False
+
+        except Exception as ex:
+            self._logger.error(f"Given saved data path is not valid: {str_data_path}")
+            self._logger.error(f"Reason: {str(ex)}")
+            return False
+        return True
