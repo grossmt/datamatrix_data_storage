@@ -1,0 +1,17 @@
+# USAGE:
+# conda env create -f env-win32.yaml
+# conda activate datamatrix_storage
+
+name: datamatrix_storage_win32
+channels:
+  - defaults/win-32
+  - pypi
+
+variables:
+  CONDA_SUBDIR: win-32
+
+dependencies:
+  - python=3.8
+  - pip
+  - pip:
+    - -r requirements.txt

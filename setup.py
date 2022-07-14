@@ -57,6 +57,7 @@ setup(
         "flask",
         "loguru",
         "strenum",
+        "setuptools==58.0.4",
     ],
     extras_require={
         "dev": [

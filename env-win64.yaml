@@ -1,14 +1,14 @@
 # USAGE:
-# conda env create -f conda-env.yaml
+# conda env create -f env-win64.yaml
 # conda activate datamatrix_storage
 
-name: datamatrix_storage
+name: datamatrix_storage_win64
 channels:
   - defaults
   - pypi
+
 dependencies:
   - python=3.8
   - pip
   - pip:
-    - setuptools==58.0.4
     - -r requirements.txt
